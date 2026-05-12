@@ -647,17 +647,26 @@ pub async fn move_to_folder(
 ) -> Result<(), String> {
     let pool = &db.pool;
 
-    let folder_id = match folder_id {
-        Some(id) => Some(id.parse::<i64>().map_err(|_| "Invalid folder ID")?),
+    log::info!("move_to_folder: clip_id={}, folder_id={:?}", clip_id, folder_id);
+
+    let folder_id_parsed = match folder_id {
+        Some(id) if id == "null" => None, // Handle edge case where "null" string is passed
+        Some(id) => Some(id.parse::<i64>().map_err(|e| format!("Invalid folder ID '{}': {}", id, e))?),
         None => None,
     };
 
-    sqlx::query(r#"UPDATE clips SET folder_id = ? WHERE uuid = ?"#)
-        .bind(folder_id)
+    let result = sqlx::query(r#"UPDATE clips SET folder_id = ? WHERE uuid = ?"#)
+        .bind(folder_id_parsed)
         .bind(&clip_id)
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
+
+    if result.rows_affected() == 0 {
+        log::warn!("move_to_folder: No clip found with uuid={}", clip_id);
+        return Err("Clip not found".to_string());
+    }
+
     Ok(())
 }
 

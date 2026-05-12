@@ -8,7 +8,6 @@ use tauri::{
     tray::{TrayIcon, TrayIconBuilder},
     Manager,
 };
-use tauri_plugin_aptabase::EventTracker;
 #[cfg(not(feature = "app-store"))]
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
@@ -108,7 +107,6 @@ pub fn run_app() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_aptabase::Builder::new("A-US-2920723583").build())
         .manage(db_arc.clone())
         .on_window_event(|window, event| {
             match event {
@@ -221,7 +219,6 @@ pub fn run_app() {
             });
             app.manage(Arc::new(settings_manager));
 
-            let _ = app.track_event("startup", None);
             let handle = app.handle().clone();
             let db_for_clipboard = db_arc.clone();
 

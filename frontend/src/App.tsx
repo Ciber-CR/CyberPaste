@@ -395,7 +395,7 @@ function App() {
 
   const handleDragLeave = () => {
     setDragTargetFolderId(null);
-    dragStateRef.current.targetFolderId = 'NO_TARGET';
+    dragStateRef.current.targetFolderId = undefined;
   };
 
   // Total History Count
