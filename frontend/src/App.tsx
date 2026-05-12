@@ -552,24 +552,17 @@ function App() {
 
   const handleMoveClip = async (clipId: string, folderId: string | null) => {
     try {
-      await invoke('move_to_folder', { clipId, folderId });
+      await invoke('move_to_folder', { clip_id: clipId, folder_id: folderId });
 
-      // Update local state to reflect the move
-      if (selectedFolder) {
-        // If we are in a specific folder (not All)
-        if (folderId !== selectedFolder) {
-          // If moved to a different folder, remove from current view
-          setClips((prev) => prev.filter((c) => c.id !== clipId));
-        }
-      } else {
-        // If we are in "All clips" view, just update the folder_id
-        setClips((prev) => prev.map((c) => (c.id === clipId ? { ...c, folder_id: folderId } : c)));
-      }
-      // Refresh counts after move
+      // Refresh current view from DB to ensure consistency
+      refreshCurrentFolder();
       loadFolders();
       refreshTotalCount();
+
+      toast.success(t('notifications.clipMoved'));
     } catch (error) {
       console.error('Failed to move clip:', error);
+      toast.error(t('notifications.clipMoveFailed'));
     }
   };
 

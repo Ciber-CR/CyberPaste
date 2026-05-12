@@ -131,6 +131,8 @@
     "clipDeleteFailed": "删除剪贴失败",
     "folderDeleteFailed": "删除文件夹失败",
     "folderRenameFailed": "重命名文件夹失败",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "clipMoved": "剪辑已成功移动",
+    "clipMoveFailed": "移动剪辑失败"
   }
 }

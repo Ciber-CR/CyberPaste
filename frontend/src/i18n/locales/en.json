@@ -139,6 +139,8 @@
     "clipDeleteFailed": "Failed to delete clip",
     "folderDeleteFailed": "Failed to delete folder",
     "folderRenameFailed": "Failed to rename folder",
-    "copyFailed": "Failed to copy"
+    "copyFailed": "Failed to copy",
+    "clipMoved": "Clip moved successfully",
+    "clipMoveFailed": "Failed to move clip"
   }
 }

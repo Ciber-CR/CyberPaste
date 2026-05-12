@@ -131,6 +131,8 @@
     "clipDeleteFailed": "Eintrag konnte nicht gelöscht werden",
     "folderDeleteFailed": "Ordner konnte nicht gelöscht werden",
     "folderRenameFailed": "Ordner konnte nicht umbenannt werden",
-    "copyFailed": "Kopieren fehlgeschlagen"
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "clipMoved": "Clip erfolgreich verschoben",
+    "clipMoveFailed": "Fehler beim Verschieben des Clips"
   }
 }

@@ -136,6 +136,8 @@
     "clipDeleteFailed": "Error al eliminar el clip",
     "folderDeleteFailed": "Error al eliminar la carpeta",
     "folderRenameFailed": "Error al renombrar la carpeta",
-    "copyFailed": "Error al copiar"
+    "copyFailed": "Error al copiar",
+    "clipMoved": "Clip movido correctamente",
+    "clipMoveFailed": "Error al mover el clip"
   }
 }
