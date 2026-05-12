@@ -68,7 +68,7 @@ function App() {
   const dragStateRef = useRef({
     isDragging: false,
     clipId: null as string | null,
-    targetFolderId: null as string | null,
+    targetFolderId: undefined as string | null | undefined,
     pendingDrag: null as { clipId: string; startX: number; startY: number } | null,
   });
 
@@ -291,6 +291,12 @@ function App() {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       const state = dragStateRef.current;
 
+      // SAFETY: If no buttons are pressed but we think we are dragging/pending, we missed a mouseup
+      if (e.buttons === 0 && (state.isDragging || state.pendingDrag)) {
+        finishDrag();
+        return;
+      }
+
       // If we are already dragging, update position
       if (state.isDragging) {
         setDragPosition({ x: e.clientX, y: e.clientY });
@@ -325,12 +331,20 @@ function App() {
       }
     };
 
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && (dragStateRef.current.isDragging || dragStateRef.current.pendingDrag)) {
+        finishDrag();
+      }
+    };
+
     window.addEventListener('mousemove', handleGlobalMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('keydown', handleGlobalKeyDown);
 
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
     };
   }, []);
 
@@ -360,7 +374,7 @@ function App() {
     // That's why we use `dragStateRef`.
 
     const { clipId, targetFolderId } = dragStateRef.current;
-    if (clipId && targetFolderId !== undefined && targetFolderId !== 'NO_TARGET') {
+    if (clipId && targetFolderId !== undefined) {
       handleMoveClip(clipId, targetFolderId);
     }
 
@@ -369,7 +383,7 @@ function App() {
     dragStateRef.current = {
       isDragging: false,
       clipId: null,
-      targetFolderId: 'NO_TARGET',
+      targetFolderId: undefined,
       pendingDrag: null,
     };
   };
