@@ -2,6 +2,23 @@
 
 All notable changes to CyberPaste will be documented in this file.
 
+## v1.0.0
+
+### Added
+- **Dynamic Identity**: Support for custom icons and colors for folders, persisted in the database.
+- **Cyber Search**: New overlay search bar with "Searching in [Folder]" context and smooth transitions.
+- **Snap Scrolling**: "Silicon Valley" touch magnetic scroll for the clip list with high-precision alignment.
+- **Neon Aesthetic**: Refined vibrant neon styles for buttons and minimalist frames for folder tabs.
+- **Stability**: Debounced window auto-hide and multi-monitor support refinement.
+
+### 新增
+- **动态识别**: 支持文件夹自定义图标和颜色，并持久化保存至数据库。
+- **赛博搜索**: 全新的覆盖式搜索栏，支持“正在搜索 [文件夹]”上下文及平滑过渡。
+- **吸附滚动**: 剪贴板列表实现“硅谷级”磁性滚动，具有高精度对齐效果。
+- **霓虹美学**: 优化了按钮的霓虹视觉效果，以及文件夹选项卡的极简框架设计。
+- **稳定性**: 优化了窗口自动隐藏的防抖逻辑及多显示器支持。
+
+
 ## v1.3.7
 
 ### Added
