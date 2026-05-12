@@ -53,6 +53,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   isLoading,
   theme,
   totalClipCount,
+  isPinned,
   onTogglePin,
   onFolderContextMenu,
   onDragStart,

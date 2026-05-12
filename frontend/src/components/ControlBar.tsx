@@ -53,6 +53,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   viewMode,
   isPinned,
   onTogglePin,
+  isDragging,
   style,
 }) => {
 
