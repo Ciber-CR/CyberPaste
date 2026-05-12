@@ -1,0 +1,861 @@
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { ClipboardItem as AppClipboardItem, FolderItem, Settings } from './types';
+import { ClipList } from './components/ClipList';
+import { ControlBar } from './components/ControlBar';
+import { CompactView } from './components/CompactView';
+import { DragPreview } from './components/DragPreview';
+import { ContextMenu } from './components/ContextMenu';
+import { FolderModal } from './components/FolderModal';
+import { AiResultDialog } from './components/AiResultDialog';
+import { useKeyboard } from './hooks/useKeyboard';
+import { useTheme } from './hooks/useTheme';
+import { useLanguage } from './hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
+import { Toaster, toast } from 'sonner';
+import { LAYOUT } from './constants';
+import { generateDemoClips } from './debug/demoData';
+
+const base64ToBlob = (base64: string, mimeType: string = 'image/png'): Blob => {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+};
+
+const getImageMimeType = (metadata: string | null): string => {
+  if (!metadata) return 'image/png';
+  try {
+    const parsed = JSON.parse(metadata) as { format?: string };
+    const format = parsed.format?.toLowerCase();
+    if (format === 'jpeg' || format === 'jpg') return 'image/jpeg';
+    if (format === 'webp') return 'image/webp';
+  } catch {
+    // Ignore metadata parse errors and fall back.
+  }
+  return 'image/png';
+};
+
+function App() {
+  const [clips, setClips] = useState<AppClipboardItem[]>([]);
+  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  const [clipListResetToken, setClipListResetToken] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [theme, setTheme] = useState('system');
+  const [settings, setSettings] = useState<Settings | null>(null);
+
+  // Simulated Drag State
+  const [draggingClipId, setDraggingClipId] = useState<string | null>(null);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [dragTargetFolderId, setDragTargetFolderId] = useState<string | null>(null);
+
+  // Add Folder Modal State
+  const [showAddFolderModal, setShowAddFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  // Using refs for event handlers to access latest state without re-attaching listeners
+  const dragStateRef = useRef({
+    isDragging: false,
+    clipId: null as string | null,
+    targetFolderId: null as string | null,
+    pendingDrag: null as { clipId: string; startX: number; startY: number } | null,
+  });
+
+  const effectiveTheme = useTheme(theme);
+  useLanguage(settings?.language);
+  const { t } = useTranslation();
+
+  const appWindow = getCurrentWindow();
+  const selectedFolderRef = useRef(selectedFolder);
+  selectedFolderRef.current = selectedFolder;
+  const loadPerfIdRef = useRef(0);
+  const perfLogEnabled =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  useEffect(() => {
+    console.log('App: Initializing...');
+    
+    // Safety timeout for loading state
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    invoke<Settings>('get_settings')
+      .then((s) => {
+        setTheme(s.theme);
+        setSettings(s);
+        clearTimeout(timer);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to get settings:', err);
+        setIsLoading(false);
+      });
+
+    // Listen for setting changes from the settings window
+    const unlisten = listen<Settings>('settings-changed', (event) => {
+      setTheme(event.payload.theme);
+      setSettings(event.payload);
+    });
+
+    // Debug only: load demo clips / restore actual data when triggered from settings
+    const unlistenDemo = import.meta.env.DEV
+      ? Promise.all([
+          listen('load-demo-data', () => {
+            setClips(generateDemoClips());
+            setHasMore(false);
+          }),
+          listen('restore-actual-data', () => {
+            loadClips(selectedFolderRef.current, false, '');
+          }),
+        ])
+      : Promise.resolve([() => {}, () => {}]);
+
+    return () => {
+      unlisten.then((f) => f());
+      unlistenDemo.then((fs) => fs.forEach((f) => f()));
+    };
+  }, []);
+
+  const openSettings = useCallback(async () => {
+    // Check if settings window already exists
+    const existingWin = await WebviewWindow.getByLabel('settings');
+    if (existingWin) {
+      try {
+        await invoke('focus_window', { label: 'settings' });
+      } catch (e) {
+        console.error('Failed to focus settings window:', e);
+        // Fallback to JS API if command fails (though command is preferred)
+        await existingWin.unminimize();
+        await existingWin.show();
+        await existingWin.setFocus();
+      }
+      return;
+    }
+
+    const settingsWin = new WebviewWindow('settings', {
+      url: 'index.html?window=settings',
+      title: 'Settings',
+      width: 800,
+      height: 700,
+      resizable: true,
+      decorations: false, // We have our own title bar in SettingsPanel
+      transparent: false,
+      center: true,
+    });
+
+    settingsWin.once('tauri://created', function () {});
+
+    settingsWin.once('tauri://error', function (e) {
+      console.error('Error creating settings window', e);
+    });
+  }, []);
+
+  const loadClips = useCallback(
+    async (folderId: string | null, append: boolean = false, searchQuery: string = '') => {
+      const perfId = ++loadPerfIdRef.current;
+      const loadStart = perfLogEnabled ? performance.now() : 0;
+      let invokeStart = 0;
+      let invokeEnd = 0;
+
+      try {
+        setIsLoading(true);
+
+        const currentOffset = append ? clips.length : 0;
+
+        let data: AppClipboardItem[];
+
+        if (searchQuery.trim()) {
+          if (perfLogEnabled) invokeStart = performance.now();
+          data = await invoke<AppClipboardItem[]>('search_clips', {
+            query: searchQuery,
+            filterId: folderId,
+            limit: 20,
+            offset: currentOffset,
+          });
+          if (perfLogEnabled) invokeEnd = performance.now();
+        } else {
+          if (perfLogEnabled) invokeStart = performance.now();
+          data = await invoke<AppClipboardItem[]>('get_clips', {
+            filterId: folderId,
+            limit: 20,
+            offset: currentOffset,
+            previewOnly: true,
+          });
+          if (perfLogEnabled) invokeEnd = performance.now();
+        }
+
+        const imageCount = perfLogEnabled
+          ? data.filter((item) => item.clip_type === 'image').length
+          : 0;
+        const totalContentChars = perfLogEnabled
+          ? data.reduce((sum, item) => sum + (item.content?.length ?? 0), 0)
+          : 0;
+        const imageContentChars = perfLogEnabled
+          ? data
+              .filter((item) => item.clip_type === 'image')
+              .reduce((sum, item) => sum + (item.content?.length ?? 0), 0)
+          : 0;
+
+        if (append) {
+          setClips((prev) => {
+            return [...prev, ...data];
+          });
+        } else {
+          setClips(data);
+        }
+
+        // If we got fewer than limit, no more clips
+        setHasMore(data.length === 20);
+
+        if (perfLogEnabled) {
+          const stateQueuedAt = performance.now();
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const paintedAt = performance.now();
+              console.info('[perf][loadClips]', {
+                id: perfId,
+                folderId: folderId ?? 'all',
+                append,
+                hasSearch: Boolean(searchQuery.trim()),
+                offset: currentOffset,
+                itemCount: data.length,
+                imageCount,
+                totalContentChars,
+                imageContentChars,
+                invokeMs: Number((invokeEnd - invokeStart).toFixed(1)),
+                queueToPaintMs: Number((paintedAt - stateQueuedAt).toFixed(1)),
+                totalMs: Number((paintedAt - loadStart).toFixed(1)),
+              });
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load clips:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [clips.length]
+  );
+
+  const loadFolders = useCallback(async () => {
+    try {
+      const data = await invoke<FolderItem[]>('get_folders');
+
+      setFolders(data);
+    } catch (error) {
+      console.error('Failed to load folders:', error);
+    }
+  }, []);
+
+  const refreshCurrentFolder = useCallback(() => {
+    loadClips(selectedFolderRef.current, false, searchQuery);
+  }, [loadClips, searchQuery]);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  const handleSelectFolder = useCallback((folderId: string | null) => {
+    // Reset view-level selection state whenever user switches/re-clicks folders.
+    setSelectedClipId(null);
+    setClipListResetToken((prev) => prev + 1);
+    setSelectedFolder(folderId);
+  }, []);
+
+  useEffect(() => {
+    loadFolders();
+    if (searchQuery.trim()) {
+      loadClips(selectedFolder, false, searchQuery);
+    } else {
+      loadClips(selectedFolder);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFolder, searchQuery]);
+
+  // Handle global mouse events for simulated drag
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const state = dragStateRef.current;
+
+      // If we are already dragging, update position
+      if (state.isDragging) {
+        setDragPosition({ x: e.clientX, y: e.clientY });
+        return;
+      }
+
+      // If we have a pending drag, check threshold
+      if (state.pendingDrag) {
+        const dx = e.clientX - state.pendingDrag.startX;
+        const dy = e.clientY - state.pendingDrag.startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 5) {
+          // Start actual drag
+          setDraggingClipId(state.pendingDrag.clipId);
+          setDragPosition({ x: e.clientX, y: e.clientY });
+          dragStateRef.current.isDragging = true;
+          dragStateRef.current.clipId = state.pendingDrag.clipId;
+          dragStateRef.current.pendingDrag = null;
+        }
+      }
+    };
+
+    const handleGlobalMouseUp = (_: MouseEvent) => {
+      // Always clear pending drag on mouse up
+      if (dragStateRef.current.pendingDrag) {
+        dragStateRef.current.pendingDrag = null;
+      }
+
+      if (dragStateRef.current.isDragging) {
+        finishDrag();
+      }
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
+
+  const startDrag = (clipId: string, startX: number, startY: number) => {
+    // Instead of starting immediately, set pending
+    dragStateRef.current.pendingDrag = { clipId, startX, startY };
+    dragStateRef.current.clipId = clipId;
+    // We don't set state yet, avoiding re-render until threshold passed
+  };
+
+  const finishDrag = () => {
+    if (dragStateRef.current.targetFolderId !== undefined && dragStateRef.current.clipId) {
+      // We only move if targetFolderId was explicitly set by a hover event.
+      // Wait, how do we distinguish "Not Hovering" vs "Hovering 'All' (null)"?
+      // We will make ControlBar pass a specific sentinel for "No Target" when leaving?
+      // Or simply: ControlBar tracks hover. If hover, it calls setDragTargetFolderId.
+      // If we drop and dragTargetFolderId is valid, we move.
+      // BUT 'null' is a valid folder ID (All).
+      // Let's use a generic 'undefined' for "No Target".
+    }
+
+    // Actually, simpler:
+    // When MouseUp happens, we check dragTargetFolderId state.
+    // If it is NOT undefined, we execute move.
+
+    // IMPORTANT: State updates in React are async. accessing `dragTargetFolderId` state inside event listener might be stale?
+    // That's why we use `dragStateRef`.
+
+    const { clipId, targetFolderId } = dragStateRef.current;
+    if (clipId && targetFolderId !== undefined && targetFolderId !== 'NO_TARGET') {
+      handleMoveClip(clipId, targetFolderId);
+    }
+
+    setDraggingClipId(null);
+    setDragTargetFolderId(null);
+    dragStateRef.current = {
+      isDragging: false,
+      clipId: null,
+      targetFolderId: 'NO_TARGET',
+      pendingDrag: null,
+    };
+  };
+
+  const handleDragHover = (folderId: string | null) => {
+    setDragTargetFolderId(folderId);
+    dragStateRef.current.targetFolderId = folderId;
+  };
+
+  const handleDragLeave = () => {
+    setDragTargetFolderId(null);
+    dragStateRef.current.targetFolderId = 'NO_TARGET';
+  };
+
+  // Total History Count
+  const [totalClipCount, setTotalClipCount] = useState(0);
+
+  const refreshTotalCount = useCallback(async () => {
+    try {
+      const count = await invoke<number>('get_clipboard_history_size');
+      setTotalClipCount(count);
+    } catch (e) {
+      console.error('Failed to get history size', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshTotalCount();
+  }, [refreshTotalCount]);
+
+  useEffect(() => {
+    const unlistenClipboard = listen('clipboard-change', () => {
+      refreshCurrentFolder();
+      loadFolders(); // Refresh folders to get updated counts
+      refreshTotalCount(); // Refresh total count
+    });
+
+    return () => {
+      unlistenClipboard.then((unlisten) => {
+        if (typeof unlisten === 'function') unlisten();
+      });
+    };
+  }, [refreshCurrentFolder, loadFolders, refreshTotalCount]);
+
+  const handleDelete = async (clipId: string | null) => {
+    if (!clipId) return;
+    try {
+      await invoke('delete_clip', { id: clipId, hardDelete: false });
+      setClips(clips.filter((c) => c.id !== clipId));
+      setSelectedClipId(null);
+      // Refresh counts
+      loadFolders();
+      refreshTotalCount();
+      toast.success(t('notifications.clipDeleted'));
+    } catch (error) {
+      console.error('Failed to delete clip:', error);
+      toast.error(t('notifications.clipDeleteFailed'));
+    }
+  };
+
+  const getFullImageBlob = useCallback(
+    async (clipId: string, fallbackClip: AppClipboardItem): Promise<Blob> => {
+      const detail = await invoke<AppClipboardItem>('get_clip_detail', { id: clipId });
+      const mimeType = getImageMimeType(detail.metadata ?? fallbackClip.metadata);
+      return base64ToBlob(detail.content, mimeType);
+    },
+    []
+  );
+
+  const handlePaste = async (clipId: string) => {
+    try {
+      const clip = clips.find((c) => c.id === clipId);
+      if (clip && clip.clip_type === 'image') {
+        try {
+          const blob = await getFullImageBlob(clipId, clip);
+          await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+        } catch (e) {
+          console.error('Frontend clipboard write failed', e);
+        }
+      }
+
+      invoke('paste_clip', { id: clipId }).catch(console.error);
+    } catch (error) {
+      console.error('Failed to paste clip:', error);
+    }
+  };
+
+  const handleCopy = async (clipId: string) => {
+    try {
+      const clip = clips.find((c) => c.id === clipId);
+      if (clip && clip.clip_type === 'image') {
+        const blob = await getFullImageBlob(clipId, clip);
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      }
+
+      await invoke('paste_clip', { id: clipId });
+
+      toast.success(t('common.copied'));
+    } catch (error) {
+      console.error('Failed to copy clip:', error);
+      toast.error(t('notifications.copyFailed'));
+    }
+  };
+
+  // Keyboard navigation handlers
+  const handleNavigateLeft = useCallback(() => {
+    if (clips.length === 0) return;
+
+    if (!selectedClipId) {
+      // No selection, select the first clip
+      setSelectedClipId(clips[0].id);
+      return;
+    }
+
+    const currentIndex = clips.findIndex((c) => c.id === selectedClipId);
+    if (currentIndex > 0) {
+      setSelectedClipId(clips[currentIndex - 1].id);
+    }
+  }, [clips, selectedClipId]);
+
+  const handleNavigateRight = useCallback(() => {
+    if (clips.length === 0) return;
+
+    if (!selectedClipId) {
+      // No selection, select the first clip
+      setSelectedClipId(clips[0].id);
+      return;
+    }
+
+    const currentIndex = clips.findIndex((c) => c.id === selectedClipId);
+    if (currentIndex < clips.length - 1) {
+      setSelectedClipId(clips[currentIndex + 1].id);
+    }
+  }, [clips, selectedClipId]);
+
+  const handlePasteSelected = useCallback(() => {
+    if (selectedClipId) {
+      handlePaste(selectedClipId);
+    }
+  }, [selectedClipId, handlePaste]);
+
+  useKeyboard({
+    onClose: () => appWindow.hide(),
+    onSearch: () => setShowSearch(true),
+    onDelete: () => handleDelete(selectedClipId),
+    onNavigateLeft: handleNavigateLeft,
+    onNavigateRight: handleNavigateRight,
+    onPaste: handlePasteSelected,
+  });
+
+  const handleCreateFolder = async (name: string, icon?: string, color?: string) => {
+    try {
+      await invoke('create_folder', { name, icon, color });
+      await loadFolders();
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      throw error;
+    }
+  };
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoading) {
+      loadClips(selectedFolder, true, searchQuery);
+    }
+  }, [hasMore, isLoading, selectedFolder, loadClips, searchQuery]);
+
+  const handleMoveClip = async (clipId: string, folderId: string | null) => {
+    try {
+      await invoke('move_to_folder', { clipId, folderId });
+
+      // Update local state to reflect the move
+      if (selectedFolder) {
+        // If we are in a specific folder (not All)
+        if (folderId !== selectedFolder) {
+          // If moved to a different folder, remove from current view
+          setClips((prev) => prev.filter((c) => c.id !== clipId));
+        }
+      } else {
+        // If we are in "All clips" view, just update the folder_id
+        setClips((prev) => prev.map((c) => (c.id === clipId ? { ...c, folder_id: folderId } : c)));
+      }
+      // Refresh counts after move
+      loadFolders();
+      refreshTotalCount();
+    } catch (error) {
+      console.error('Failed to move clip:', error);
+    }
+  };
+
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    type: 'card' | 'folder';
+    x: number;
+    y: number;
+    itemId: string;
+  } | null>(null);
+
+  // New Folder Modal Rename Mode
+  const [folderModalMode, setFolderModalMode] = useState<'create' | 'rename'>('create');
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+
+  // AI Result State
+  const [aiResult, setAiResult] = useState({
+    isOpen: false,
+    title: '',
+    content: '',
+  });
+
+  const toggleViewMode = useCallback(async () => {
+    try {
+      await invoke('toggle_view_mode');
+    } catch (e) {
+      console.error('Failed to toggle view mode:', e);
+    }
+  }, []);
+
+  const handleAiAction = async (clipId: string, action: string, title: string) => {
+    try {
+      const toastId = toast.loading(t('ai.processing'));
+      const result = await invoke<string>('ai_process_clip', { clipId, action });
+      toast.dismiss(toastId);
+      setAiResult({
+        isOpen: true,
+        title,
+        content: result,
+      });
+    } catch (error) {
+      toast.dismiss();
+      console.error('AI Processing Failed:', error);
+      toast.error(t('ai.error', { error: String(error) }));
+    }
+  };
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, type: 'card' | 'folder', itemId: string) => {
+      e.preventDefault();
+      setContextMenu({
+        type,
+        x: e.clientX,
+        y: e.clientY,
+        itemId,
+      });
+    },
+    []
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  // Updated Create Folder to handle Rename
+  const handleCreateOrRenameFolder = async (name: string, icon?: string, color?: string) => {
+    if (folderModalMode === 'create') {
+      try {
+        await handleCreateFolder(name, icon, color);
+        toast.success(t('folders.folderCreated', { name }));
+        setShowAddFolderModal(false);
+        setNewFolderName('');
+      } catch (error) {
+        toast.error(t('notifications.folderCreateFailed'));
+      }
+    } else if (folderModalMode === 'rename' && editingFolderId) {
+      try {
+        await invoke('rename_folder', { id: editingFolderId, name, icon, color });
+        await loadFolders();
+        toast.success(t('folders.folderRenamed', { name }));
+        setShowAddFolderModal(false);
+        setNewFolderName('');
+      } catch (error) {
+        console.error('Failed to rename folder:', error);
+        toast.error(t('notifications.folderRenameFailed'));
+      }
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    if (!folderId) return;
+    try {
+      await invoke('delete_folder', { id: folderId });
+      if (selectedFolder === folderId) {
+        setSelectedFolder(null);
+      }
+      await loadFolders();
+      refreshTotalCount();
+      toast.success(t('folders.folderDeleted'));
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      toast.error(t('notifications.folderDeleteFailed'));
+    }
+  };
+
+  const handleTogglePin = async () => {
+    if (!settings) return;
+    const newPinned = !settings.pinned;
+    try {
+      const newSettings = { ...settings, pinned: newPinned };
+      await invoke('save_settings', { settings: newSettings });
+      setSettings(newSettings);
+      toast.success(newPinned ? "Window Pinned" : "Window Unpinned");
+    } catch (error) {
+      console.error('Failed to toggle pin:', error);
+    }
+  };
+
+  return (
+    <div data-el="app-root" className="relative h-screen w-full overflow-hidden">
+      {/* Content Container */}
+      <div
+        data-el="app-window"
+        className={`relative h-full w-full overflow-hidden ${settings?.mica_effect === 'clear' ? 'bg-background/95' : ''}`}
+      >
+        {settings?.view_mode === 'compact' ? (
+          <CompactView
+            clips={clips}
+            folders={folders}
+            selectedFolder={selectedFolder}
+            onSelectFolder={handleSelectFolder}
+            searchQuery={searchQuery}
+            onSearchChange={handleSearch}
+            onPaste={handlePaste}
+            onDelete={handleDelete}
+            onToggleMode={toggleViewMode}
+            onOpenSettings={openSettings}
+            isLoading={isLoading}
+            theme={effectiveTheme}
+            isPinned={settings?.pinned}
+            onTogglePin={handleTogglePin}
+            totalClipCount={totalClipCount}
+            onFolderContextMenu={(e, folderId) => {
+              if (folderId) handleContextMenu(e, 'folder', folderId);
+            }}
+          />
+        ) : (
+          <div
+            data-el="app-frame"
+            className="flex h-full w-full flex-col font-sans text-foreground"
+          >
+            {draggingClipId && (
+              <DragPreview
+                clip={clips.find((c) => c.id === draggingClipId)!}
+                position={dragPosition}
+              />
+            )}
+
+            <ControlBar
+              style={{ height: LAYOUT.CONTROL_BAR_HEIGHT, flexShrink: 0 }}
+              folders={folders}
+              selectedFolder={selectedFolder}
+              onSelectFolder={handleSelectFolder}
+              showSearch={showSearch}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearch}
+              onSearchClick={() => {
+                if (showSearch) {
+                  handleSearch(''); // Clear search when closing
+                }
+                setShowSearch(!showSearch);
+              }}
+              onAddClick={() => {
+                setFolderModalMode('create');
+                setNewFolderName('');
+                setShowAddFolderModal(true);
+              }}
+              onMoreClick={openSettings}
+              onMoveClip={handleMoveClip} // Legacy, but kept for interface
+              // Simulated Drag Props
+              isDragging={!!draggingClipId}
+              dragTargetFolderId={dragTargetFolderId}
+              onDragHover={handleDragHover}
+              onDragLeave={handleDragLeave}
+              totalClipCount={totalClipCount}
+              onFolderContextMenu={(e, folderId) => {
+                if (folderId) handleContextMenu(e, 'folder', folderId);
+              }}
+              theme={effectiveTheme}
+              // Add toggle button to ControlBar
+              onToggleMode={toggleViewMode}
+              viewMode={settings?.view_mode || 'full'}
+              isPinned={settings?.pinned}
+              onTogglePin={handleTogglePin}
+            />
+
+            <main data-el="clip-list-area" className="no-scrollbar relative flex-1 overflow-hidden">
+              <ClipList
+                clips={clips}
+                isLoading={isLoading}
+                hasMore={hasMore}
+                resetToken={clipListResetToken}
+                selectedClipId={selectedClipId}
+                onPaste={handlePaste}
+                onCopy={handleCopy}
+                onLoadMore={loadMore}
+                // Simulated Drag Props
+                onDragStart={startDrag}
+                onCardContextMenu={(e, clipId) => handleContextMenu(e, 'card', clipId)}
+                scrollDirection={settings?.scroll_direction || 'horizontal'}
+              />
+            </main>
+          </div>
+        )}
+
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={handleCloseContextMenu}
+            options={
+              contextMenu.type === 'card'
+                ? [
+                    {
+                      label: `${settings?.ai_title_summarize || t('contextMenu.summarize')}`,
+                      onClick: () =>
+                        handleAiAction(contextMenu.itemId, 'summarize', t('ai.summary')),
+                    },
+                    {
+                      label: `${settings?.ai_title_translate || t('contextMenu.translate')}`,
+                      onClick: () =>
+                        handleAiAction(contextMenu.itemId, 'translate', t('ai.translation')),
+                    },
+                    {
+                      label: `${settings?.ai_title_explain_code || t('contextMenu.explainCode')}`,
+                      onClick: () =>
+                        handleAiAction(
+                          contextMenu.itemId,
+                          'explain_code',
+                          t('ai.codeExplanation')
+                        ),
+                    },
+                    {
+                      label: `${settings?.ai_title_fix_grammar || t('contextMenu.fixGrammar')}`,
+                      onClick: () =>
+                        handleAiAction(contextMenu.itemId, 'fix_grammar', t('ai.grammarCheck')),
+                    },
+                    {
+                      label: t('contextMenu.delete') || 'Delete',
+                      danger: true,
+                      onClick: () => handleDelete(contextMenu.itemId),
+                    },
+                  ]
+                : [
+                    {
+                      label: 'Edit',
+                      onClick: () => {
+                        setFolderModalMode('rename');
+                        setEditingFolderId(contextMenu.itemId);
+                        const folder = folders.find((f) => f.id === contextMenu.itemId);
+                        setNewFolderName(folder ? folder.name : '');
+                        setShowAddFolderModal(true);
+                      },
+                    },
+                    {
+                      label: t('contextMenu.delete') || 'Delete',
+                      danger: true,
+                      onClick: () => handleDeleteFolder(contextMenu.itemId),
+                    },
+                  ]
+            }
+          />
+        )}
+
+        {/* Add/Rename Folder Modal Overlay */}
+        <FolderModal
+          isOpen={showAddFolderModal}
+          mode={folderModalMode}
+          initialName={newFolderName}
+          initialIcon={editingFolderId ? (folders.find(f => f.id === editingFolderId)?.icon || undefined) : undefined}
+          initialColor={editingFolderId ? (folders.find(f => f.id === editingFolderId)?.color || undefined) : undefined}
+          onClose={() => {
+            setShowAddFolderModal(false);
+            setNewFolderName('');
+            setEditingFolderId(null);
+          }}
+          onSave={handleCreateOrRenameFolder}
+        />
+
+        <AiResultDialog
+          isOpen={aiResult.isOpen}
+          title={aiResult.title}
+          content={aiResult.content}
+          onClose={() => setAiResult((prev) => ({ ...prev, isOpen: false }))}
+        />
+
+        <Toaster richColors position="bottom-center" theme={effectiveTheme} />
+      </div>
+    </div>
+  );
+}
+
+export default App;
