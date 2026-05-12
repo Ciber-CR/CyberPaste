@@ -32,6 +32,11 @@ interface CompactViewProps {
   isPinned?: boolean;
   onTogglePin?: () => void;
   onFolderContextMenu?: (e: React.MouseEvent, id: string) => void;
+  onDragStart: (clipId: string, startX: number, startY: number) => void;
+  onDragHover: (folderId: string | null) => void;
+  onDragLeave: () => void;
+  isDragging: boolean;
+  dragTargetFolderId: string | null;
 }
 
 export const CompactView: React.FC<CompactViewProps> = ({
@@ -48,9 +53,13 @@ export const CompactView: React.FC<CompactViewProps> = ({
   isLoading,
   theme,
   totalClipCount,
-  isPinned,
   onTogglePin,
-  onFolderContextMenu
+  onFolderContextMenu,
+  onDragStart,
+  onDragHover,
+  onDragLeave,
+  isDragging,
+  dragTargetFolderId
 }) => {
   const { t } = useTranslation();
   
@@ -159,10 +168,14 @@ export const CompactView: React.FC<CompactViewProps> = ({
             onClick={() => onSelectFolder(null)}
             className={cn(
               "px-3 py-1 rounded-full text-[10px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border",
-              selectedFolder === null 
+              selectedFolder === null && !dragTargetFolderId
                 ? "bg-white/10 text-white border-white/20 shadow-[0_0_8px_rgba(255,255,255,0.05)]" 
+                : dragTargetFolderId === null && isDragging
+                ? "bg-cyan-500/30 border-cyan-400 text-white"
                 : "bg-white/5 hover:bg-white/10 border-transparent opacity-60 hover:opacity-100"
             )}
+            onMouseEnter={() => isDragging && onDragHover(null)}
+            onMouseLeave={onDragLeave}
           >
             <Clock size={10} />
             [Clipboard]
@@ -177,10 +190,14 @@ export const CompactView: React.FC<CompactViewProps> = ({
                 onContextMenu={(e) => onFolderContextMenu?.(e, folder.id)}
                 className={cn(
                   "px-3 py-1 rounded-full text-[10px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border",
-                  selectedFolder === folder.id
+                  selectedFolder === folder.id && !dragTargetFolderId
                     ? "bg-white/10 text-white border-white/20" 
+                    : dragTargetFolderId === folder.id
+                    ? "bg-cyan-500/30 border-cyan-400 text-white"
                     : "bg-white/5 hover:bg-white/10 border-transparent opacity-60 hover:opacity-100"
                 )}
+                onMouseEnter={() => isDragging && onDragHover(folder.id)}
+                onMouseLeave={onDragLeave}
               >
                 <Icon size={10} style={{ color: folder.color || undefined }} />
                 {folder.name}
@@ -202,6 +219,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
             <div 
               key={clip.id}
               onClick={() => onPaste(clip.id)}
+              onMouseDown={(e) => onDragStart(clip.id, e.clientX, e.clientY)}
               className="group relative flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer overflow-hidden h-12 flex-shrink-0"
             >
               <div className="flex-shrink-0 w-8 flex items-center justify-center">

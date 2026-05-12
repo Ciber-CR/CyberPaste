@@ -91,11 +91,8 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         >
           <button
             onClick={() => onSelectFolder(null)}
-            onDragOver={(e) => {
-              e.preventDefault();
-              onDragHover(null);
-            }}
-            onDragLeave={onDragLeave}
+            onMouseEnter={() => isDragging && onDragHover(null)}
+            onMouseLeave={onDragLeave}
             className={clsx(
               'flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition-all relative group shrink-0 my-1',
               selectedFolder === null && !dragTargetFolderId
@@ -130,11 +127,8 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                 key={folder.id}
                 onClick={() => onSelectFolder(folder.id)}
                 onContextMenu={(e) => onFolderContextMenu(e, folder.id)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  onDragHover(folder.id);
-                }}
-                onDragLeave={onDragLeave}
+                onMouseEnter={() => isDragging && onDragHover(folder.id)}
+                onMouseLeave={onDragLeave}
                 className={clsx(
                   'flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition-all shrink-0 my-1',
                   isSelected && !isDragTarget

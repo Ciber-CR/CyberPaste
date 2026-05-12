@@ -1,25 +1,13 @@
 <h1 align="center">
-    <picture>
-      <img src="https://raw.githubusercontent.com/Ciber-CR/CyberPaste/refs/heads/main/src-tauri/icons/64x64.png" alt="CyberPaste" width="32">
-    </picture>
+    
     CyberPaste - Clipboard History Manager
 </h1>
 
 
-<p align="center">
-  <a href="README_CN.md">中文</a> •
-  <a href="README.md">English</a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Ciber-CR/CyberPaste/actions/workflows/release.yml?branch=main"><img src="https://img.shields.io/github/actions/workflow/status/Ciber-CR/CyberPaste/release.yml?branch=main&style=flat" alt="CI status"></a>
-  <a href="https://github.com/Ciber-CR/CyberPaste/releases"><img src="https://img.shields.io/github/v/release/Ciber-CR/CyberPaste?include_prereleases&style=flat" alt="GitHub release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL3.0-blue.svg?style=flat" alt="MIT License"></a>
-</p>
 
 A beautiful clipboard history manager for Windows, built with Rust + Tauri + React + TypeScript.
 
-Also available for **macOS** on the [App Store](https://apps.apple.com/us/app/cyberpaste/id6759132043?mt=12) — visit [cyberpaste.com](https://cyberpaste.com/) for more.
+
 
 ## Features
 
@@ -37,14 +25,7 @@ Also available for **macOS** on the [App Store](https://apps.apple.com/us/app/cy
 - 🤖 **AI Powered** - Built-in AI to summarize, translate, explain code, and fix grammar
 - ⚙️ **Customizable AI** - Fully customize AI action names and system prompts to suit your workflow
 
-## Screenshots
 
-![docs/cyber_paste_dark.png](docs/screenshot_win_panes.png)
-
-### Light theme
-![docs/cyber_paste_dark.png](docs/screenshot_win_light.png)
-### Dark theme
-![docs/cyber_paste_dark.png](docs/screenshot_win_dark.png)
 
 
 ## Installation Guide
@@ -60,7 +41,7 @@ winget install Ciber-CR.CyberPaste
 Download the latest installer directly from:
 [https://github.com/Ciber-CR/CyberPaste/releases](https://github.com/Ciber-CR/CyberPaste/releases)
 
-> 🔍 **Security:** Every release is automatically scanned with [VirusTotal](https://www.virustotal.com/) (70+ antivirus engines). Scan results are linked at the bottom of each release note.
+
 
 
 ## Keyboard Shortcuts

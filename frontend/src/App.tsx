@@ -681,6 +681,13 @@ function App() {
         data-el="app-window"
         className={`relative h-full w-full overflow-hidden ${settings?.mica_effect === 'clear' ? 'bg-background/95' : ''}`}
       >
+        {draggingClipId && (
+          <DragPreview
+            clip={clips.find((c) => c.id === draggingClipId)!}
+            position={dragPosition}
+          />
+        )}
+
         {settings?.view_mode === 'compact' ? (
           <CompactView
             clips={clips}
@@ -701,19 +708,17 @@ function App() {
             onFolderContextMenu={(e, folderId) => {
               if (folderId) handleContextMenu(e, 'folder', folderId);
             }}
+            onDragStart={startDrag}
+            onDragHover={handleDragHover}
+            onDragLeave={handleDragLeave}
+            isDragging={!!draggingClipId}
+            dragTargetFolderId={dragTargetFolderId}
           />
         ) : (
           <div
             data-el="app-frame"
             className="flex h-full w-full flex-col font-sans text-foreground"
           >
-            {draggingClipId && (
-              <DragPreview
-                clip={clips.find((c) => c.id === draggingClipId)!}
-                position={dragPosition}
-              />
-            )}
-
             <ControlBar
               style={{ height: LAYOUT.CONTROL_BAR_HEIGHT, flexShrink: 0 }}
               folders={folders}

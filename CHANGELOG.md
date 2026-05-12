@@ -2,6 +2,15 @@
 
 All notable changes to CyberPaste will be documented in this file.
 
+## v1.0.1
+
+### Fixed
+- **Drag & Drop**: Fixed clips not being draggable to folders by replacing the native drag system with a custom simulated one that works in both Full and Compact views.
+
+### 修复
+- **拖放功能**: 修复了剪贴项无法拖入文件夹的问题。通过自定义模拟拖拽系统替代原生系统，现在该功能在完整视图和精简视图中均可正常使用。
+
+
 ## v1.0.0
 
 ### Added
