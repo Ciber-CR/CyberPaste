@@ -56,7 +56,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onTogglePin,
   style,
 }) => {
-  const { t } = useTranslation();
+  // const { t } = useTranslation();
 
   return (
     <div
