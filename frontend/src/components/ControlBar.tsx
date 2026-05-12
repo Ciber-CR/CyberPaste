@@ -3,7 +3,6 @@ import React from 'react';
 import { Search, Plus, MoreVertical, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff } from 'lucide-react';
 import { FolderItem } from '../types';
 import { clsx } from 'clsx';
-import { useTranslation } from 'react-i18next';
 
 const IconMap: Record<string, any> = {
   Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderIcon, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun
@@ -56,7 +55,6 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onTogglePin,
   style,
 }) => {
-  // const { t } = useTranslation();
 
   return (
     <div
