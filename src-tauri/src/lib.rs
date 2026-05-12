@@ -105,6 +105,7 @@ pub fn run_app() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_x::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .manage(db_arc.clone())
@@ -352,7 +353,12 @@ pub fn run_app() {
             commands::export_backup,
             commands::import_backup,
             commands::export_backup_to_file,
-            commands::import_backup_from_file
+            commands::import_backup_from_file,
+            commands::open_devtools,
+            commands::get_data_dir_path,
+            commands::show_item_in_folder,
+            commands::update_clip_content,
+            commands::open_with
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

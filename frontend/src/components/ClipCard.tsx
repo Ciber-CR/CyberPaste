@@ -4,7 +4,7 @@ import { useMemo, memo, useState, forwardRef } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { LAYOUT, PREVIEW_CHAR_LIMIT } from '../constants';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, MoveHorizontal, MoveVertical } from 'lucide-react';
 import { useMotionValue, useMotionTemplate, motion } from 'framer-motion';
 
 interface ClipCardProps {
@@ -48,19 +48,20 @@ export const ClipCard = memo(
       return `data:image/png;base64,${value}`;
     }, [clip.clip_type, clip.content]);
 
-    const imageSizeKb = useMemo(() => {
-      if (clip.clip_type !== 'image') return 0;
+    const imageMetadata = useMemo(() => {
+      if (clip.clip_type !== 'image') return { sizeKb: 0, width: 0, height: 0 };
       try {
         const parsed = clip.metadata
-          ? (JSON.parse(clip.metadata) as { size_bytes?: number })
+          ? (JSON.parse(clip.metadata) as { size_bytes?: number; width?: number; height?: number })
           : null;
-        if (parsed?.size_bytes && parsed.size_bytes > 0) {
-          return Math.round(parsed.size_bytes / 1024);
-        }
+        return {
+          sizeKb: parsed?.size_bytes ? Math.round(parsed.size_bytes / 1024) : 0,
+          width: parsed?.width || 0,
+          height: parsed?.height || 0,
+        };
       } catch {
-        // Ignore invalid metadata and fall back to zero.
+        return { sizeKb: 0, width: 0, height: 0 };
       }
-      return 0;
     }, [clip.clip_type, clip.metadata]);
 
     // Memoize the content rendering
@@ -72,6 +73,7 @@ export const ClipCard = memo(
               <img
                 src={imageSrc ?? undefined}
                 alt="Clipboard Image"
+                draggable="false"
                 className="max-h-full max-w-full object-contain"
               />
             ) : (
@@ -130,7 +132,13 @@ export const ClipCard = memo(
       >
         <div
           data-el="clip-card-inner"
-          onMouseDown={(e) => onDragStart(clip.id, e.clientX, e.clientY)}
+          onMouseDown={(e) => {
+            if (e.button === 0) {
+              e.preventDefault(); // Stop native drag
+              onDragStart(clip.id, e.clientX, e.clientY);
+            }
+          }}
+          draggable="false"
           onMouseMove={handleMouseMove}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -174,6 +182,7 @@ export const ClipCard = memo(
               <img
                 src={`data:image/png;base64,${clip.source_icon}`}
                 alt=""
+                draggable="false"
                 className="h-4 w-4 object-contain"
               />
             )}
@@ -207,7 +216,25 @@ export const ClipCard = memo(
           <div data-el="clip-card-footer" className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-card via-card/100 to-transparent/0 px-3 py-1.5">
             <span className="text-[11px] font-medium text-muted-foreground/50">
               {clip.clip_type === 'image'
-                ? t('clipList.imageSize', { size: imageSizeKb })
+                ? (
+                  <div className="flex w-full items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-0.5">
+                        <MoveHorizontal size={10} className="text-muted-foreground/60" />
+                        <span>{imageMetadata.width}</span>
+                      </span>
+                      <span className="opacity-40 text-[8px]">×</span>
+                      <span className="flex items-center gap-0.5">
+                        <MoveVertical size={10} className="text-muted-foreground/60" />
+                        <span>{imageMetadata.height}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="opacity-40">•</span>
+                      <span>{imageMetadata.sizeKb}KB</span>
+                    </div>
+                  </div>
+                )
                 : t('clipList.textLength', { count: clip.content.length })}
             </span>
           </div>

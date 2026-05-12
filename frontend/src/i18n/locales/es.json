@@ -21,7 +21,7 @@
     "empty": "No hay clips aún",
     "emptyDesc": "Copia algo a tu portapapeles y aparecerá aquí.",
     "loadingClips": "Cargando clips...",
-    "imageSize": "Imagen ({{size}}KB)",
+    "imageSize": "{{width}}x{{height}} • {{size}}KB",
     "textLength": "{{count}} caracteres"
   },
   "folders": {
@@ -86,6 +86,8 @@
     "hotkey": "Atajo Global",
     "hotkeyDesc": "Atajo para mostrar/ocultar CyberPaste",
     "hotkeyPlaceholder": "Haz click para grabar...",
+    "viewModeHotkey": "Atajo de Cambio de Vista",
+    "viewModeHotkeyDesc": "Atajo para alternar entre vista completa y compacta",
     "hotkeyRecording": "Presiona las teclas...",
     "ignoredApps": "Aplicaciones Ignoradas",
     "ignoredAppsDesc": "No capturar el portapapeles de estas apps",

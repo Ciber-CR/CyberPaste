@@ -224,9 +224,10 @@ export const ControlBar: React.FC<ControlBarProps> = ({
 
         <button
           onClick={onMoreClick}
-          className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary/50 transition-all"
+          className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary/50 transition-all text-muted-foreground hover:text-primary"
+          title="Settings"
         >
-          <MoreVertical size={18} />
+          <Settings size={18} />
         </button>
         
         <button 

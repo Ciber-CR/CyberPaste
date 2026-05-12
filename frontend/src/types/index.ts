@@ -25,6 +25,7 @@ export interface Settings {
   startup_with_windows: boolean;
   show_in_taskbar: boolean;
   hotkey: string;
+  view_mode_hotkey?: string;
   theme: string;
   language?: string;
   mica_effect?: string;

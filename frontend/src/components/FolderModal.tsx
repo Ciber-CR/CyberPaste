@@ -43,10 +43,10 @@ export const FolderModal: React.FC<FolderModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/50 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/50 flex flex-col animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/5 bg-white/5 p-4">
+        <div className="flex items-center justify-between border-b border-white/5 bg-white/5 p-4 flex-shrink-0">
           <h3 className="text-lg font-bold text-white">
             {mode === 'create' ? t('folders.createNew') : t('folders.rename')}
           </h3>
@@ -55,7 +55,7 @@ export const FolderModal: React.FC<FolderModalProps> = ({
           </button>
         </div>
 
-        <div className="max-h-[220px] overflow-y-auto p-5 space-y-6 custom-scrollbar">
+        <div className="overflow-y-auto p-5 space-y-6 custom-scrollbar flex-1">
           {/* Name Input */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-widest text-white/40">{t('folders.folderName')}</label>

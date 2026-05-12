@@ -21,7 +21,7 @@
     "empty": "No clips yet",
     "emptyDesc": "Copy something to your clipboard and it will appear here.",
     "loadingClips": "Loading clips...",
-    "imageSize": "Image ({{size}}KB)",
+    "imageSize": "{{width}}x{{height}} • {{size}}KB",
     "textLength": "{{count}} characters"
   },
   "folders": {
@@ -89,6 +89,8 @@
     "hotkey": "Global Hotkey",
     "hotkeyDesc": "Shortcut to show/hide CyberPaste",
     "hotkeyPlaceholder": "Click to record...",
+    "viewModeHotkey": "Toggle View Hotkey",
+    "viewModeHotkeyDesc": "Shortcut to switch between full and compact views",
     "hotkeyRecording": "Press keys...",
     "ignoredApps": "Ignored Applications",
     "ignoredAppsDesc": "Don't capture clipboard from these apps",

@@ -57,7 +57,7 @@ export function DragPreview({ clip, position }: DragPreviewProps) {
       style={{
         left: position.x,
         top: position.y,
-        transform: 'translate(10px, 10px)', // Offset from cursor
+        transform: 'translate(-50%, 20px)', // Centered horizontally under cursor, slightly below
       }}
     >
       <div className={clsx(headerColor, 'flex items-center gap-2 px-3 py-1.5')}>

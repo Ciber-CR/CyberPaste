@@ -13,6 +13,7 @@ pub struct AppSettings {
     pub max_items: i64,
     pub auto_delete_days: i64,
     pub hotkey: String,
+    pub view_mode_hotkey: String,
     pub auto_paste: bool,
     pub ignore_ghost_clips: bool,
     pub startup_with_windows: bool,
@@ -21,6 +22,7 @@ pub struct AppSettings {
     pub view_mode: String, // "full" or "compact"
     pub scroll_direction: String, // "horizontal" or "vertical"
     pub pinned: bool,
+    pub image_editor_path: String,
 
     // AI
     pub ai_provider: String,
@@ -46,9 +48,10 @@ impl Default for AppSettings {
             theme: "system".to_string(),
             mica_effect: "clear".to_string(),
             language: "en".to_string(),
-            max_items: 1000,
+            max_items: 200,
             auto_delete_days: 30,
             hotkey: "Ctrl+Shift+V".to_string(),
+            view_mode_hotkey: "Ctrl+M".to_string(),
             auto_paste: false,
             ignore_ghost_clips: false,
             startup_with_windows: false,
@@ -57,6 +60,7 @@ impl Default for AppSettings {
             view_mode: "full".to_string(),
             scroll_direction: "horizontal".to_string(),
             pinned: false,
+            image_editor_path: "".to_string(),
 
             ai_provider: "openai".to_string(),
             ai_api_key: "".to_string(),

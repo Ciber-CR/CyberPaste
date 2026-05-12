@@ -36,8 +36,9 @@ tauri-plugin-notification = "2"
 log = "0.4.29"
 window-vibrancy = "0.7"
 reqwest = { version = "0.13.1", features = ["json"] }
-dark-light = "2.0.0"
+dark-light = "2"
 tauri-plugin-clipboard-x = "2.0.1"
+tauri-plugin-window-state = "2"
 tauri-plugin-dialog = "2"
 clipboard-rs = "0.2"
 

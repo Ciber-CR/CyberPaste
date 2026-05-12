@@ -186,6 +186,33 @@ async fn cleanup_orphan_clip_image_files(pool: &SqlitePool) -> Result<(), String
     Ok(())
 }
 
+pub async fn prune_history(pool: &SqlitePool, max_items: i64) -> Result<(), String> {
+    // 1. Get count of clips NOT in folders
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM clips WHERE folder_id IS NULL AND is_deleted = 0")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if count > max_items {
+        let to_delete = count - max_items;
+        // 2. Delete the oldest 'to_delete' clips that are NOT in folders
+        sqlx::query(r#"
+            DELETE FROM clips 
+            WHERE uuid IN (
+                SELECT uuid FROM clips 
+                WHERE folder_id IS NULL AND is_deleted = 0
+                ORDER BY created_at ASC 
+                LIMIT ?
+            )
+        "#)
+        .bind(to_delete)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 async fn cleanup_all_clip_image_files(pool: &SqlitePool) -> Result<(), String> {
     let all_paths: Vec<Option<String>> = sqlx::query_scalar(r#"SELECT file_path FROM clip_images"#)
         .fetch_all(pool)
@@ -647,7 +674,14 @@ pub async fn move_to_folder(
 ) -> Result<(), String> {
     let pool = &db.pool;
 
-    log::info!("move_to_folder: clip_id={}, folder_id={:?}", clip_id, folder_id);
+    // First check if clip exists and what type it is
+    let clip_info: Option<(String, String)> = sqlx::query_as("SELECT uuid, clip_type FROM clips WHERE uuid = ?")
+        .bind(&clip_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    log::info!("move_to_folder: clip_id={}, folder_id={:?}, info={:?}", clip_id, folder_id, clip_info);
 
     let folder_id_parsed = match folder_id {
         Some(id) if id == "null" => None, // Handle edge case where "null" string is passed
@@ -1308,4 +1342,73 @@ pub async fn import_backup_from_file(
     } else {
         Err("Import cancelled".to_string())
     }
+}
+
+#[tauri::command]
+pub fn open_devtools(window: tauri::WebviewWindow) {
+    window.open_devtools();
+}
+
+#[tauri::command]
+pub fn get_data_dir_path() -> Result<String, String> {
+    let current_dir = std::env::current_dir().unwrap_or(std::path::PathBuf::from("."));
+    match dirs::data_dir() {
+        Some(path) => Ok(path.join("CyberPaste").to_string_lossy().to_string()),
+        None => Ok(current_dir.join("CyberPaste").to_string_lossy().to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn open_with(app_path: String, file_path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        Command::new(app_path)
+            .arg(file_path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Not supported on this OS".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn show_item_in_folder(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        Command::new("explorer")
+            .arg("/select,")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Not supported on this OS".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn update_clip_content(
+    db: tauri::State<'_, Arc<Database>>,
+    clip_id: String,
+    new_content: String,
+) -> Result<(), String> {
+    let pool = &db.pool;
+    
+    // Update both content and text_preview
+    sqlx::query("UPDATE clips SET content = ?, text_preview = ? WHERE uuid = ?")
+        .bind(new_content.as_bytes())
+        .bind(new_content.chars().take(200).collect::<String>())
+        .bind(&clip_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
 }

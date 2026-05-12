@@ -8,11 +8,35 @@ interface KeyboardOptions {
   onNavigateLeft?: () => void;
   onNavigateRight?: () => void;
   onPaste?: () => void;
+  onToggleMode?: () => void;
+  toggleModeHotkey?: string; // e.g. "Ctrl+M"
 }
 
 export function useKeyboard(options: KeyboardOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Helper to check if event matches a hotkey string like "Ctrl+Shift+V"
+      const matchesHotkey = (hotkey: string) => {
+        const parts = hotkey.split('+');
+        const key = parts.pop()?.toLowerCase();
+        const hasCtrl = parts.includes('Ctrl');
+        const hasShift = parts.includes('Shift');
+        const hasAlt = parts.includes('Alt');
+        const hasCmd = parts.includes('Cmd');
+
+        const eventKey = e.key.toLowerCase();
+        // Handle physical key names like 'm' vs 'M'
+        const keyMatches = eventKey === key || (e.code.startsWith('Key') && e.code.slice(3).toLowerCase() === key);
+        
+        return (
+          keyMatches &&
+          e.ctrlKey === hasCtrl &&
+          e.shiftKey === hasShift &&
+          e.altKey === hasAlt &&
+          e.metaKey === hasCmd
+        );
+      };
+
       if (e.key === 'Escape' && options.onClose) {
         e.preventDefault();
         options.onClose();
@@ -21,6 +45,18 @@ export function useKeyboard(options: KeyboardOptions) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'f' && options.onSearch) {
         e.preventDefault();
         options.onSearch();
+      }
+      
+      // Dynamic Toggle Mode Hotkey
+      if (options.onToggleMode && options.toggleModeHotkey) {
+        if (matchesHotkey(options.toggleModeHotkey)) {
+          e.preventDefault();
+          options.onToggleMode();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'm' && options.onToggleMode) {
+        // Fallback to Ctrl+M
+        e.preventDefault();
+        options.onToggleMode();
       }
 
       if (e.key === 'Delete' && options.onDelete) {

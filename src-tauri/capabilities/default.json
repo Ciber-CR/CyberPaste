@@ -21,6 +21,11 @@
     "updater:default",
     "process:default",
     "notification:default",
+    "window-state:default",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
     {
       "identifier": "opener:allow-open-url",
       "allow": [

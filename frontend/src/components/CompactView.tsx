@@ -32,6 +32,7 @@ interface CompactViewProps {
   isPinned?: boolean;
   onTogglePin?: () => void;
   onFolderContextMenu?: (e: React.MouseEvent, id: string) => void;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
   onDragStart: (clipId: string, startX: number, startY: number) => void;
   onDragHover: (folderId: string | null) => void;
   onDragLeave: () => void;
@@ -56,6 +57,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   isPinned,
   onTogglePin,
   onFolderContextMenu,
+  onContextMenu,
   onDragStart,
   onDragHover,
   onDragLeave,
@@ -131,10 +133,10 @@ export const CompactView: React.FC<CompactViewProps> = ({
           </button>
           <button 
             onClick={onOpenSettings}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors opacity-60 hover:opacity-100"
+            className="p-1.5 rounded-md hover:bg-white/10 transition-colors opacity-60 hover:opacity-100 text-muted-foreground hover:text-primary"
             title="Settings"
           >
-            <List size={16} />
+            <Settings size={16} />
           </button>
           <button 
             onClick={() => (window as any).__TAURI_INTERNALS__.invoke('hide_window')}
@@ -220,9 +222,27 @@ export const CompactView: React.FC<CompactViewProps> = ({
             <div 
               key={clip.id}
               onClick={() => onPaste(clip.id)}
-              onMouseDown={(e) => onDragStart(clip.id, e.clientX, e.clientY)}
+              onContextMenu={(e) => onContextMenu?.(e, clip.id)}
+              onMouseDown={(e) => {
+                if (e.button === 0) {
+                  e.preventDefault(); // Stop native drag
+                  onDragStart(clip.id, e.clientX, e.clientY);
+                }
+              }}
+              draggable="false"
               className="group relative flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer overflow-hidden h-12 flex-shrink-0"
             >
+              {/* App Icon Reference */}
+              {clip.source_icon && (
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 opacity-40 group-hover:opacity-100 transition-opacity">
+                  <img
+                    src={`data:image/png;base64,${clip.source_icon}`}
+                    alt=""
+                    draggable="false"
+                    className="h-3 w-3 object-contain"
+                  />
+                </div>
+              )}
               <div className="flex-shrink-0 w-8 flex items-center justify-center">
                 <span className="text-[10px] opacity-30 font-mono">#{clips.length - index}</span>
               </div>
@@ -235,6 +255,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
                         <img 
                           src={getClipImageSrc(clip.content)} 
                           alt="clip" 
+                          draggable="false"
                           className="w-full h-full object-cover" 
                         />
                       ) : (

@@ -81,15 +81,19 @@
 
 @layer components {
   .clip-card {
-    @apply relative rounded-2xl border border-border bg-card/80 p-4 transition-all duration-200;
+    @apply relative rounded-2xl border border-white/[0.03] bg-gradient-to-br from-zinc-900/80 to-black/95 p-4 transition-all duration-300 backdrop-blur-md;
+    box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.5);
   }
 
   .clip-card:hover {
-    @apply border-primary/50 bg-accent/80;
+    @apply border-primary/30 bg-white/[0.02];
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(var(--primary-rgb), 0.1);
+    transform: translateY(-2px);
   }
 
   .clip-card.selected {
-    @apply border-primary bg-primary/5;
+    @apply border-primary/60 bg-primary/5;
+    box-shadow: 0 0 25px rgba(var(--primary-rgb), 0.15);
   }
 
   .sidebar-item {

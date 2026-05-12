@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { EditClipModal } from './components/EditClipModal';
+import { MoveToFolderModal } from './components/MoveToFolderModal';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { ClipboardItem as AppClipboardItem, FolderItem, Settings } from './types';
@@ -151,6 +153,7 @@ function App() {
       width: 800,
       height: 700,
       resizable: true,
+      maximizable: true,
       decorations: false, // We have our own title bar in SettingsPanel
       transparent: false,
       center: true,
@@ -284,7 +287,7 @@ function App() {
       loadClips(selectedFolder);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, searchQuery]);
+  }, [selectedFolder, searchQuery, clipListResetToken]);
 
   // Handle global mouse events for simulated drag
   useEffect(() => {
@@ -353,6 +356,7 @@ function App() {
     dragStateRef.current.pendingDrag = { clipId, startX, startY };
     dragStateRef.current.clipId = clipId;
     // We don't set state yet, avoiding re-render until threshold passed
+    document.body.classList.add('is-dragging');
   };
 
   const finishDrag = () => {
@@ -386,6 +390,7 @@ function App() {
       targetFolderId: undefined,
       pendingDrag: null,
     };
+    document.body.classList.remove('is-dragging');
   };
 
   const handleDragHover = (folderId: string | null) => {
@@ -416,9 +421,10 @@ function App() {
 
   useEffect(() => {
     const unlistenClipboard = listen('clipboard-change', () => {
-      refreshCurrentFolder();
-      loadFolders(); // Refresh folders to get updated counts
-      refreshTotalCount(); // Refresh total count
+      console.log('[App] Clipboard change detected, refreshing...');
+      setClipListResetToken(prev => prev + 1);
+      loadFolders();
+      refreshTotalCount();
     });
 
     return () => {
@@ -525,14 +531,6 @@ function App() {
     }
   }, [selectedClipId, handlePaste]);
 
-  useKeyboard({
-    onClose: () => appWindow.hide(),
-    onSearch: () => setShowSearch(true),
-    onDelete: () => handleDelete(selectedClipId),
-    onNavigateLeft: handleNavigateLeft,
-    onNavigateRight: handleNavigateRight,
-    onPaste: handlePasteSelected,
-  });
 
   const handleCreateFolder = async (name: string, icon?: string, color?: string) => {
     try {
@@ -552,7 +550,7 @@ function App() {
 
   const handleMoveClip = async (clipId: string, folderId: string | null) => {
     try {
-      await invoke('move_to_folder', { clip_id: clipId, folder_id: folderId });
+      await invoke('move_to_folder', { clipId, folderId });
 
       // Refresh current view from DB to ensure consistency
       refreshCurrentFolder();
@@ -584,6 +582,12 @@ function App() {
     title: '',
     content: '',
   });
+  const [editClip, setEditClip] = useState<{ isOpen: boolean; clipId: string; content: string }>({
+    isOpen: false,
+    clipId: '',
+    content: '',
+  });
+  const [moveToFolderClipId, setMoveToFolderClipId] = useState<string | null>(null);
 
   const toggleViewMode = useCallback(async () => {
     try {
@@ -652,6 +656,33 @@ function App() {
     }
   };
 
+  const handleUpdateClipContent = async (clipId: string, newContent: string) => {
+    try {
+      await invoke('update_clip_content', { clipId, newContent });
+      setEditClip(prev => ({ ...prev, isOpen: false }));
+      // Force a full list reset via token to ensure data is fresh
+      setClipListResetToken(prev => prev + 1);
+      refreshTotalCount();
+      toast.success('Clip content updated');
+    } catch (e) {
+      console.error('Failed to update clip content:', e);
+      toast.error('Failed to update clip');
+    }
+  };
+
+  const handleMoveToFolder = async (clipId: string, folderId: string | null) => {
+    try {
+      await invoke('move_to_folder', { clipId, folderId });
+      await loadClips(true);
+      await loadFolders();
+      refreshTotalCount();
+      toast.success(folderId ? 'Moved to folder' : 'Moved to main clipboard');
+    } catch (e) {
+      console.error('Failed to move clip:', e);
+      toast.error('Failed to move clip');
+    }
+  };
+
   const handleDeleteFolder = async (folderId: string) => {
     if (!folderId) return;
     try {
@@ -676,13 +707,28 @@ function App() {
       await invoke('save_settings', { settings: newSettings });
       setSettings(newSettings);
       toast.success(newPinned ? "Window Pinned" : "Window Unpinned");
-    } catch (error) {
-      console.error('Failed to toggle pin:', error);
+    } catch (e) {
+      console.error('Failed to toggle pin:', e);
     }
   };
 
+  useKeyboard({
+    onClose: () => appWindow.hide(),
+    onSearch: () => setShowSearch(true),
+    onDelete: () => handleDelete(selectedClipId),
+    onNavigateLeft: handleNavigateLeft,
+    onNavigateRight: handleNavigateRight,
+    onPaste: handlePasteSelected,
+    onToggleMode: toggleViewMode,
+    toggleModeHotkey: settings?.view_mode_hotkey,
+  });
+
   return (
-    <div data-el="app-root" className="relative h-screen w-full overflow-hidden">
+    <div 
+      data-el="app-root" 
+      className="relative h-screen w-full overflow-hidden"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Content Container */}
       <div
         data-el="app-window"
@@ -714,6 +760,9 @@ function App() {
             totalClipCount={totalClipCount}
             onFolderContextMenu={(e, folderId) => {
               if (folderId) handleContextMenu(e, 'folder', folderId);
+            }}
+            onContextMenu={(e, clipId) => {
+              if (clipId) handleContextMenu(e, 'card', clipId);
             }}
             onDragStart={startDrag}
             onDragHover={handleDragHover}
@@ -792,6 +841,38 @@ function App() {
               contextMenu.type === 'card'
                 ? [
                     {
+                      label: 'Edit',
+                      onClick: () => {
+                        const clip = clips.find(c => c.id === contextMenu.itemId);
+                        if (clip) {
+                          if (clip.clip_type === 'image') {
+                            if (settings?.image_editor_path) {
+                              invoke('open_with', { 
+                                appPath: settings.image_editor_path, 
+                                filePath: clip.content 
+                              }).then(() => {
+                                // Auto-hide after successful launch
+                                invoke('hide_window');
+                                toast.success('Image editor launched');
+                              }).catch(e => toast.error(`Failed to open editor: ${e}`));
+                            } else {
+                              toast.info('Please configure an External Image Editor (like CyberViewer) in Settings to use this feature.');
+                            }
+                          } else {
+                            setEditClip({
+                              isOpen: true,
+                              clipId: contextMenu.itemId,
+                              content: clip.content
+                            });
+                          }
+                        }
+                      }
+                    },
+                    {
+                      label: 'Move to Folder...',
+                      onClick: () => setMoveToFolderClipId(contextMenu.itemId),
+                    },
+                    {
                       label: `${settings?.ai_title_summarize || t('contextMenu.summarize')}`,
                       onClick: () =>
                         handleAiAction(contextMenu.itemId, 'summarize', t('ai.summary')),
@@ -862,6 +943,22 @@ function App() {
           title={aiResult.title}
           content={aiResult.content}
           onClose={() => setAiResult((prev) => ({ ...prev, isOpen: false }))}
+        />
+
+        <EditClipModal
+          isOpen={editClip.isOpen}
+          content={editClip.content}
+          onClose={() => setEditClip(prev => ({ ...prev, isOpen: false }))}
+          onSave={(newContent) => handleUpdateClipContent(editClip.clipId, newContent)}
+        />
+
+        <MoveToFolderModal
+          isOpen={!!moveToFolderClipId}
+          folders={folders}
+          onClose={() => setMoveToFolderClipId(null)}
+          onSelect={(folderId) => {
+            if (moveToFolderClipId) handleMoveToFolder(moveToFolderClipId, folderId);
+          }}
         />
 
         <Toaster richColors position="bottom-center" theme={effectiveTheme} />

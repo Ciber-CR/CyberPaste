@@ -442,6 +442,14 @@ async fn process_clipboard_change(
         }
         clip_uuid
     };
+    
+    // Prune history in background to avoid blocking the clipboard loop
+    let pool_clone = pool.clone();
+    let max_items = settings.max_items;
+    let _ = crate::models::get_runtime().unwrap().spawn(async move {
+        let _ = crate::commands::prune_history(&pool_clone, max_items).await;
+    });
+    
     let db_write_ms = db_write_started.elapsed().as_millis();
 
     let emit_started = std::time::Instant::now();
