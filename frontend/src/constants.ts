@@ -30,11 +30,12 @@ export const FOLDER_ICONS = {
 };
 
 export const LAYOUT = {
-  WINDOW_HEIGHT: 330, // Updated to match constants.rs
+  WINDOW_HEIGHT: 500,
   COMPACT_WIDTH: 550,
   COMPACT_HEIGHT: 350,
+  FULL_HEIGHT: 320,
   CONTROL_BAR_HEIGHT: 50,
-  CARD_WIDTH: 230, // Optimized for 6 columns on 1080p/scaled
+  CARD_WIDTH: 230,
   CARD_GAP: 12,
   SIDE_PADDING: 16,
   CARD_VERTICAL_PADDING: 8,

@@ -291,10 +291,19 @@ pub fn run_app() {
 
             let manager = app_handle.state::<Arc<SettingsManager>>();
             let saved_hotkey = manager.get().hotkey;
+            log::info!("Attempting to register hotkey: {}", saved_hotkey);
+
+            // Unregister any leftover hotkeys from previous instances
+            if let Err(e) = app_handle.global_shortcut().unregister_all() {
+                log::debug!("No existing shortcuts to unregister: {:?}", e);
+            }
+
+            // Give OS time to release the registration
+            std::thread::sleep(std::time::Duration::from_millis(100));
 
             if let Ok(shortcut) = Shortcut::from_str(&saved_hotkey) {
                 let win_clone = win.clone();
-                let _ = app_handle.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+                match app_handle.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
                         if win_clone.is_visible().unwrap_or(false) && win_clone.is_focused().unwrap_or(false) {
                             crate::animate_window_hide(&win_clone, None);
@@ -302,7 +311,14 @@ pub fn run_app() {
                             position_window_at_bottom(&win_clone);
                         }
                     }
-                });
+                }) {
+                    Ok(()) => log::info!("Global hotkey registered: {}", saved_hotkey),
+                    Err(e) => {
+                        log::warn!("Hotkey '{}' conflict: {:?}. Change it in Settings.", saved_hotkey, e);
+                    }
+                }
+            } else {
+                log::error!("Failed to parse hotkey string: {}", saved_hotkey);
             }
 
             let handle_for_clip = app_handle.clone();
@@ -358,7 +374,9 @@ pub fn run_app() {
             commands::get_data_dir_path,
             commands::show_item_in_folder,
             commands::update_clip_content,
-            commands::open_with
+            commands::open_with,
+            commands::reset_window_size,
+            commands::center_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -385,14 +403,14 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
     
     std::thread::spawn(move || {
         let _guard = AnimationGuard;
-        let (side_margin, bottom_margin, float_above_taskbar, view_mode) = {
+        let (side_margin, bottom_margin, float_above_taskbar, view_mode, saved_width, saved_height) = {
             let manager = window.state::<Arc<crate::settings_manager::SettingsManager>>();
             let s = manager.get();
             let is_mica = s.mica_effect != "clear";
             let no_corners = !s.round_corners;
             let side = if is_mica && no_corners { 0.0 } else { constants::WINDOW_MARGIN };
             let bottom = if is_mica && no_corners { 0.0 } else { constants::WINDOW_MARGIN };
-            (side, bottom, s.float_above_taskbar, s.view_mode)
+            (side, bottom, s.float_above_taskbar, s.view_mode, s.window_width, s.window_height)
         };
 
         if let Some(monitor) = get_monitor_at_cursor(&window) {
@@ -404,33 +422,39 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
             log::info!("Showing window on monitor: pos={:?}, size={:?}, work_area={:?}", monitor_pos, monitor_size, work_area);
 
             if view_mode == "compact" {
-                let window_width_px = (constants::COMPACT_WIDTH * scale_factor) as u32;
-                let window_height_px = (constants::COMPACT_HEIGHT * scale_factor) as u32;
+                let logical_w = if saved_width > 100.0 { saved_width } else { constants::COMPACT_WIDTH };
+                let logical_h = if saved_height > 100.0 { saved_height } else { constants::COMPACT_HEIGHT };
+                let window_width_px = (logical_w * scale_factor) as u32;
+                let window_height_px = (logical_h * scale_factor) as u32;
                 let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: window_width_px, height: window_height_px }));
-                
+
                 let cursor_pos = {
                     use windows::Win32::Foundation::POINT;
                     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
                     let mut point = POINT { x: 0, y: 0 };
-                    if unsafe { GetCursorPos(&mut point).is_ok() } { point } else { 
-                        POINT { x: monitor_pos.x + (monitor_size.width / 2) as i32, y: monitor_pos.y + (monitor_size.height / 2) as i32 } 
+                    if unsafe { GetCursorPos(&mut point).is_ok() } { point } else {
+                        POINT { x: monitor_pos.x + (monitor_size.width / 2) as i32, y: monitor_pos.y + (monitor_size.height / 2) as i32 }
                     }
                 };
 
                 let target_x = (cursor_pos.x - (window_width_px / 2) as i32)
-                    .clamp(work_area.position.x, work_area.position.x + work_area.size.width as i32 - window_width_px as i32);
+                    .clamp(monitor_pos.x, monitor_pos.x + monitor_size.width as i32 - window_width_px as i32);
                 let target_y = (cursor_pos.y - (window_height_px / 4) as i32)
-                    .clamp(work_area.position.y, work_area.position.y + work_area.size.height as i32 - window_height_px as i32);
-                
+                    .clamp(monitor_pos.y, monitor_pos.y + monitor_size.height as i32 - window_height_px as i32);
+
                 let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: target_y }));
                 let _ = window.show();
                 let _ = window.unminimize();
                 let _ = window.set_focus();
+
+                // Re-apply size after show — webview may have stale DPI scale factor
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: window_width_px, height: window_height_px }));
+
                 if float_above_taskbar {
                     let _ = window.set_always_on_top(true);
                 }
             } else {
-                let window_height_px = (constants::WINDOW_HEIGHT * scale_factor) as u32;
                 let side_margin_px = (side_margin * scale_factor) as i32;
                 let bottom_margin_px = (bottom_margin * scale_factor) as i32;
 
@@ -440,31 +464,36 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
                     work_area.position.y + work_area.size.height as i32 
                 };
 
-                let window_width = work_area.size.width - (side_margin_px as u32 * 2) - 4;
-                let target_x = work_area.position.x + side_margin_px as i32 + 2;
+                // Work in physical pixels to avoid webview DPI scale issues
+                let logical_window_height = if saved_height > 100.0 { saved_height } else { constants::FULL_HEIGHT };
+                let window_width_px = work_area.size.width - (side_margin_px as u32 * 2);
+                let window_height_px = (logical_window_height * scale_factor) as u32;
+
+                let target_x = work_area.position.x + side_margin_px;
                 let target_y = reference_bottom - window_height_px as i32 - bottom_margin_px;
                 let start_y = reference_bottom;
 
-                // 1. Move to target monitor first
-                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: start_y }));
-                
-                // 2. WAIT for OS to settle (DPI change)
+                // Set physical size before positioning
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { 
+                    width: window_width_px, 
+                    height: window_height_px 
+                }));
                 std::thread::sleep(std::time::Duration::from_millis(60));
 
-                // 3. Calculate Logical size from Physical work area to bypass stale DPI issues
-                let logical_width = window_width as f64 / scale_factor;
-                let logical_height = window_height_px as f64 / scale_factor;
+                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: start_y }));
 
-                let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { 
-                    width: logical_width, 
-                    height: logical_height 
-                }));
-
-                log::debug!("Animation coords: start_y={}, target_y={}, logical_w={}", start_y, target_y, logical_width);
+                log::debug!("Animation coords: start_y={}, target_y={}, phys_w={}", start_y, target_y, window_width_px);
 
                 let _ = window.show();
                 let _ = window.unminimize();
                 let _ = window.set_focus();
+
+                // Re-apply physical size after show to fix stale webview DPI
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { 
+                    width: window_width_px, 
+                    height: window_height_px 
+                }));
                 
                 let steps = 12;
                 let duration = std::time::Duration::from_millis(8);
@@ -473,14 +502,21 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
                 for i in 1..=steps {
                     let current_y = start_y as f64 + dy * i as f64;
                     let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { 
-                        x: work_area.position.x + side_margin_px, 
+                        x: target_x, 
                         y: current_y as i32 
                     }));
                     std::thread::sleep(duration);
                 }
 
-                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: work_area.position.x + side_margin_px, y: target_y }));
+                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: target_y }));
                 let _ = window.set_focus();
+
+                // Final re-apply physical size to ensure correct rendering
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { 
+                    width: window_width_px, 
+                    height: window_height_px 
+                }));
 
                 if float_above_taskbar {
                     let _ = window.set_always_on_top(true);
@@ -508,14 +544,14 @@ pub fn animate_window_hide(window: &tauri::WebviewWindow, on_done: Option<Box<dy
     let window = window.clone();
     std::thread::spawn(move || {
         let _guard = AnimationGuard;
-        let (side_margin, bottom_margin, float_above_taskbar, view_mode) = {
+        let (side_margin, bottom_margin, float_above_taskbar, view_mode, saved_height) = {
             let manager = window.state::<Arc<crate::settings_manager::SettingsManager>>();
             let s = manager.get();
             let is_mica = s.mica_effect != "clear";
             let no_corners = !s.round_corners;
             let side = if is_mica && no_corners { 0.0 } else { constants::WINDOW_MARGIN };
             let bottom = if is_mica && no_corners { 0.0 } else { constants::WINDOW_MARGIN };
-            (side, bottom, s.float_above_taskbar, s.view_mode)
+            (side, bottom, s.float_above_taskbar, s.view_mode, s.window_height)
         };
         if view_mode == "compact" {
             let _ = window.hide();
@@ -525,7 +561,8 @@ pub fn animate_window_hide(window: &tauri::WebviewWindow, on_done: Option<Box<dy
                 let monitor_pos = monitor.position();
                 let monitor_size = monitor.size();
                 let work_area = monitor.work_area();
-                let window_height_px = (constants::WINDOW_HEIGHT * scale_factor) as u32;
+                let logical_window_height = if saved_height > 100.0 { saved_height } else { constants::FULL_HEIGHT };
+                let window_height_px = (logical_window_height * scale_factor) as u32;
                 let side_margin_px = (side_margin * scale_factor) as i32;
                 let bottom_margin_px = (bottom_margin * scale_factor) as i32;
                 let reference_bottom = if float_above_taskbar { monitor_pos.y + monitor_size.height as i32 } else { work_area.position.y + work_area.size.height as i32 };

@@ -44,12 +44,21 @@ export const ClipList: React.FC<ClipListProps> = ({
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
+        const w = containerRef.current.offsetWidth;
+        if (w > 0) setContainerWidth(w);
       }
     };
+
     updateSize();
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+
+    const observer = new ResizeObserver(updateSize);
+    if (containerRef.current) observer.observe(containerRef.current);
+
+    return () => {
+      window.removeEventListener('resize', updateSize);
+      observer.disconnect();
+    };
   }, []);
 
   // Force 6 columns in vertical mode if enough space, or calculate precisely
@@ -229,7 +238,7 @@ export const ClipList: React.FC<ClipListProps> = ({
     );
   }
 
-  const gridHeight = isVertical ? (LAYOUT.WINDOW_HEIGHT - LAYOUT.CONTROL_BAR_HEIGHT) : 240;
+  const gridHeight = isVertical ? (LAYOUT.WINDOW_HEIGHT - LAYOUT.CONTROL_BAR_HEIGHT) : (LAYOUT.FULL_HEIGHT - LAYOUT.CONTROL_BAR_HEIGHT);
 
   return (
     <div ref={containerRef} className="h-full w-full flex-1 overflow-hidden">

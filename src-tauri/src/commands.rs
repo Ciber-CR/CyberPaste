@@ -1145,13 +1145,16 @@ pub async fn toggle_view_mode(app: AppHandle, window: tauri::WebviewWindow) -> R
     let mut settings = manager.get();
     
     let new_mode = if settings.view_mode == "full" {
+        settings.window_width = 550.0;
+        settings.window_height = 440.0;
         "compact".to_string()
     } else {
+        settings.window_height = crate::constants::FULL_HEIGHT;
         "full".to_string()
     };
     
     settings.view_mode = new_mode.clone();
-    manager.save(settings)?;
+    manager.save(settings.clone())?;
     
     // Reposition window based on new mode
     crate::animate_window_show(&window);
@@ -1160,6 +1163,83 @@ pub async fn toggle_view_mode(app: AppHandle, window: tauri::WebviewWindow) -> R
     let _ = app.emit("settings-changed", manager.get());
     
     Ok(new_mode)
+}
+
+#[tauri::command]
+pub async fn reset_window_size(app: AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    let manager = app.state::<Arc<SettingsManager>>();
+    let monitor = window.current_monitor().ok().flatten().ok_or("No monitor found")?;
+    let scale_factor = monitor.scale_factor();
+    let monitor_pos = monitor.position();
+    let monitor_size = monitor.size();
+    let work_area = monitor.work_area();
+
+    let settings = manager.get();
+    let is_full = settings.view_mode == "full";
+    let is_mica = settings.mica_effect != "clear";
+    let no_corners = !settings.round_corners;
+    let side_margin = if is_mica && no_corners { 0.0 } else { crate::constants::WINDOW_MARGIN };
+    let bottom_margin = if is_mica && no_corners { 0.0 } else { crate::constants::WINDOW_MARGIN };
+    let float_above_taskbar = settings.float_above_taskbar;
+
+    let (default_w, default_h) = if is_full {
+        let logical_wa_width = work_area.size.width as f64 / scale_factor;
+        (logical_wa_width - side_margin * 2.0, crate::constants::FULL_HEIGHT)
+    } else {
+        (crate::constants::COMPACT_WIDTH, crate::constants::COMPACT_HEIGHT)
+    };
+
+    manager.update(|s| {
+        s.window_width = default_w;
+        s.window_height = default_h;
+    }).await?;
+
+    if is_full {
+        let new_height_px = (default_h * scale_factor) as u32;
+        let new_width_px = work_area.size.width - ((side_margin * scale_factor) as u32 * 2);
+        let side_margin_px = (side_margin * scale_factor) as i32;
+        let bottom_margin_px = (bottom_margin * scale_factor) as i32;
+
+        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: new_width_px,
+            height: new_height_px,
+        }));
+
+        let reference_bottom = if float_above_taskbar {
+            monitor_pos.y + monitor_size.height as i32
+        } else {
+            work_area.position.y + work_area.size.height as i32
+        };
+
+        let target_x = work_area.position.x + side_margin_px;
+        let target_y = reference_bottom - new_height_px as i32 - bottom_margin_px;
+
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: target_x,
+            y: target_y,
+        }));
+    } else {
+        let new_width_px = (default_w * scale_factor) as u32;
+        let new_height_px = (default_h * scale_factor) as u32;
+
+        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: new_width_px,
+            height: new_height_px,
+        }));
+
+        // Center on monitor, clamped to monitor borders
+        let target_x = (monitor_pos.x + (monitor_size.width as i32 - new_width_px as i32) / 2)
+            .clamp(monitor_pos.x, monitor_pos.x + monitor_size.width as i32 - new_width_px as i32);
+        let target_y = (monitor_pos.y + (monitor_size.height as i32 - new_height_px as i32) / 2)
+            .clamp(monitor_pos.y, monitor_pos.y + monitor_size.height as i32 - new_height_px as i32);
+
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: target_x,
+            y: target_y,
+        }));
+    }
+
+    Ok(())
 }
 #[tauri::command]
 pub async fn export_backup(
@@ -1410,5 +1490,21 @@ pub async fn update_clip_content(
         .await
         .map_err(|e| e.to_string())?;
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn center_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    let monitor = window.current_monitor().ok().flatten().ok_or("No monitor found")?;
+    let _scale_factor = monitor.scale_factor();
+    let monitor_size = monitor.size();
+    let monitor_pos = monitor.position();
+    let window_size = window.inner_size().map_err(|e| e.to_string())?;
+
+    let x = monitor_pos.x + (monitor_size.width as i32 - window_size.width as i32) / 2;
+    // Keep current y
+    let current_pos = window.outer_position().map_err(|e| e.to_string())?;
+    
+    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y: current_pos.y }));
     Ok(())
 }

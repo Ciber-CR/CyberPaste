@@ -1,6 +1,6 @@
 // HMR Force Reload
 import React from 'react';
-import { Search, Plus, MoreVertical, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff } from 'lucide-react';
+import { Search, Plus, MoreVertical, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff, RotateCcw } from 'lucide-react';
 import { FolderItem } from '../types';
 import { clsx } from 'clsx';
 
@@ -28,8 +28,9 @@ interface ControlBarProps {
   theme: 'light' | 'dark';
   onToggleMode: () => void;
   viewMode: 'full' | 'compact';
-  isPinned?: boolean;
+  isPinned: boolean;
   onTogglePin?: () => void;
+  onResetSize?: () => void;
   style?: React.CSSProperties;
 }
 
@@ -53,6 +54,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   viewMode,
   isPinned,
   onTogglePin,
+  onResetSize,
   isDragging,
   style,
 }) => {
@@ -201,6 +203,16 @@ export const ControlBar: React.FC<ControlBarProps> = ({
       </div>
 
       <div className="flex items-center gap-1 pl-2">
+        {onResetSize && (
+          <button
+            onClick={onResetSize}
+            className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary/50 transition-all text-muted-foreground hover:text-primary"
+            title="Reset Window Size"
+          >
+            <RotateCcw size={18} />
+          </button>
+        )}
+        
         {onTogglePin && (
           <button
             onClick={onTogglePin}
@@ -213,7 +225,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             {isPinned ? <PinOff size={18} /> : <Pin size={18} />}
           </button>
         )}
-        
+
+        <button
+          onClick={onMoreClick}
+          className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary/50 transition-all text-muted-foreground hover:text-primary"
+          title="Settings"
+        >
+          <Settings size={18} />
+        </button>
+
         <button
           onClick={onToggleMode}
           className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary/50 text-cyan-400 transition-all"
@@ -223,14 +243,6 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         </button>
 
         <button
-          onClick={onMoreClick}
-          className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary/50 transition-all text-muted-foreground hover:text-primary"
-          title="Settings"
-        >
-          <Settings size={18} />
-        </button>
-        
-        <button 
           onClick={() => (window as any).__TAURI_INTERNALS__.invoke('hide_window')}
           className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-rose-500/20 text-rose-500 transition-all"
           title="Close Window"

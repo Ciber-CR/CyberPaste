@@ -44,6 +44,15 @@ const getImageMimeType = (metadata: string | null): string => {
   return 'image/png';
 };
 
+// Debounce utility for window persistence
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timeoutId: any;
+  return function(this: any, ...args: Parameters<T>) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 function App() {
   const [clips, setClips] = useState<AppClipboardItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -56,6 +65,12 @@ function App() {
   const [hasMore, setHasMore] = useState(true);
   const [theme, setTheme] = useState('system');
   const [settings, setSettings] = useState<Settings | null>(null);
+  const settingsRef = useRef<Settings | null>(null);
+  const isTogglingRef = useRef(false);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   // Simulated Drag State
   const [draggingClipId, setDraggingClipId] = useState<string | null>(null);
@@ -112,6 +127,46 @@ function App() {
       setSettings(event.payload);
     });
 
+    // Listen for open-settings from tray
+    const unlistenOpenSettings = listen('open-settings', () => {
+      openSettings();
+    });
+
+    // Listen for reset-window-layout from settings
+    const unlistenReset = listen('reset-window-layout', () => {
+      handleResetSize();
+    });
+
+    // Persist window size on change
+    const persistWindow = debounce(async () => {
+      if (isTogglingRef.current) return;
+      
+      const currentSettings = settingsRef.current;
+      if (!currentSettings) return;
+
+      const size = await appWindow.innerSize();
+      const scaleFactor = await appWindow.scaleFactor();
+      const logicalSize = size.toLogical(scaleFactor);
+
+      // Only save if visible
+      if (await appWindow.isVisible()) {
+          // Guard: don't let full-width "leak" into compact mode saved width
+          if (currentSettings.view_mode === 'compact' && logicalSize.width > 1000) {
+              return;
+          }
+
+          await invoke('save_settings', {
+            settings: {
+              ...currentSettings,
+              window_width: logicalSize.width,
+              window_height: logicalSize.height,
+            }
+          });
+      }
+    }, 1000);
+
+    const unlistenResize = appWindow.onResized(() => persistWindow());
+
     // Debug only: load demo clips / restore actual data when triggered from settings
     const unlistenDemo = import.meta.env.DEV
       ? Promise.all([
@@ -127,6 +182,9 @@ function App() {
 
     return () => {
       unlisten.then((f) => f());
+      unlistenOpenSettings.then((f) => f());
+      unlistenReset.then((f) => f());
+      unlistenResize.then((f) => f());
       unlistenDemo.then((fs) => fs.forEach((f) => f()));
     };
   }, []);
@@ -590,12 +648,36 @@ function App() {
   const [moveToFolderClipId, setMoveToFolderClipId] = useState<string | null>(null);
 
   const toggleViewMode = useCallback(async () => {
+    console.log('toggleViewMode triggered');
+    isTogglingRef.current = true;
     try {
       await invoke('toggle_view_mode');
     } catch (e) {
       console.error('Failed to toggle view mode:', e);
+    } finally {
+        setTimeout(() => { isTogglingRef.current = false; }, 1200);
     }
   }, []);
+
+  const handleResetSize = useCallback(async () => {
+    if (!settings) return;
+    isTogglingRef.current = true;
+    try {
+      await invoke('reset_window_size');
+
+      const isFull = settings.view_mode === 'full';
+      const updatedSettings = {
+          ...settings,
+          window_width: isFull ? 0 : LAYOUT.COMPACT_WIDTH,
+          window_height: isFull ? LAYOUT.FULL_HEIGHT : LAYOUT.COMPACT_HEIGHT
+      };
+      setSettings(updatedSettings);
+    } catch (e) {
+      console.error('Failed to reset size:', e);
+    } finally {
+        setTimeout(() => { isTogglingRef.current = false; }, 1200);
+    }
+  }, [settings]);
 
   const handleAiAction = async (clipId: string, action: string, title: string) => {
     try {
@@ -811,6 +893,7 @@ function App() {
               viewMode={settings?.view_mode || 'full'}
               isPinned={settings?.pinned}
               onTogglePin={handleTogglePin}
+              onResetSize={handleResetSize}
             />
 
             <main data-el="clip-list-area" className="no-scrollbar relative flex-1 overflow-hidden">

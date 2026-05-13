@@ -38,7 +38,8 @@ pub struct AppSettings {
     pub ai_title_explain_code: String,
     pub ai_title_fix_grammar: String,
 
-    // Privacy
+    pub window_width: f64,
+    pub window_height: f64,
     pub ignored_apps: HashSet<String>,
 }
 
@@ -77,6 +78,8 @@ impl Default for AppSettings {
             ai_title_explain_code: "Explain Code".to_string(),
             ai_title_fix_grammar: "Fix Grammar".to_string(),
 
+            window_width: 550.0,
+            window_height: crate::constants::FULL_HEIGHT,
             ignored_apps: HashSet::new(),
         }
     }

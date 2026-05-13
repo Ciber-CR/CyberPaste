@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { ClipboardItem as AppClip, FolderItem } from '../types';
-import { Search, List, Maximize2, Hash, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun } from 'lucide-react';
+import { Search, List, Maximize2, Hash, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
@@ -84,6 +85,14 @@ export const CompactView: React.FC<CompactViewProps> = ({
     return `data:image/png;base64,${content}`;
   };
 
+  const handleResetSize = async () => {
+    try {
+      await invoke('reset_window_size');
+    } catch (error) {
+      console.error('Failed to reset window size:', error);
+    }
+  };
+
   const folderScrollRef = useRef<HTMLDivElement>(null);
 
   const handleFolderWheel = (e: React.WheelEvent) => {
@@ -103,8 +112,8 @@ export const CompactView: React.FC<CompactViewProps> = ({
         className="flex items-center justify-between p-3 border-b border-white/10 bg-white/5 backdrop-blur-md cursor-move"
       >
         <div data-tauri-drag-region className="flex items-center gap-2">
-          <div data-tauri-drag-region className="w-6 h-6 rounded-md bg-cyan-600 flex items-center justify-center shadow-[0_0_10px_rgba(8,145,178,0.3)]">
-            <Hash size={14} className="text-white" />
+          <div data-tauri-drag-region className="w-6 h-6 flex items-center justify-center overflow-hidden">
+            <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
           </div>
           <div data-tauri-drag-region className="flex items-baseline gap-1.5">
             <span data-tauri-drag-region className="font-bold text-sm tracking-tight">CyberPaste</span>
@@ -125,11 +134,11 @@ export const CompactView: React.FC<CompactViewProps> = ({
             </button>
           )}
           <button 
-            onClick={onToggleMode}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-cyan-400"
-            title="Full View"
+            onClick={handleResetSize}
+            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+            title="Reset Default Size"
           >
-            <Maximize2 size={16} />
+            <RotateCcw size={16} />
           </button>
           <button 
             onClick={onOpenSettings}
@@ -137,6 +146,13 @@ export const CompactView: React.FC<CompactViewProps> = ({
             title="Settings"
           >
             <Settings size={16} />
+          </button>
+          <button 
+            onClick={onToggleMode}
+            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-cyan-400"
+            title="Full View"
+          >
+            <Maximize2 size={16} />
           </button>
           <button 
             onClick={() => (window as any).__TAURI_INTERNALS__.invoke('hide_window')}
@@ -232,21 +248,19 @@ export const CompactView: React.FC<CompactViewProps> = ({
               draggable="false"
               className="group relative flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer overflow-hidden h-12 flex-shrink-0"
             >
-              {/* App Icon Reference */}
-              {clip.source_icon && (
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 opacity-40 group-hover:opacity-100 transition-opacity">
+              <div className="flex-shrink-0 w-8 flex items-center justify-center">
+                <span className="text-[10px] opacity-30 font-mono">#{clips.length - index}</span>
+              </div>
+              <div className="flex-shrink-0 w-8 flex items-center justify-center border-l border-white/5">
+                {clip.source_icon && (
                   <img
                     src={`data:image/png;base64,${clip.source_icon}`}
                     alt=""
                     draggable="false"
-                    className="h-3 w-3 object-contain"
+                    className="h-3.5 w-3.5 object-contain opacity-50 group-hover:opacity-100 transition-opacity"
                   />
-                </div>
-              )}
-              <div className="flex-shrink-0 w-8 flex items-center justify-center">
-                <span className="text-[10px] opacity-30 font-mono">#{clips.length - index}</span>
+                )}
               </div>
-              
               <div className="flex-1 min-w-0 flex items-center gap-3">
                 {clip.clip_type === 'image' ? (
                   <>
