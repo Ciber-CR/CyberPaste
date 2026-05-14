@@ -655,6 +655,35 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                         />
                       </div>
 
+                      <div className="space-y-3">
+                        <label className="block">
+                          <span className="text-base font-medium">{t('settings.compactFolderLayout')}</span>
+                          <p className="text-xs text-muted-foreground">{t('settings.compactFolderLayoutDesc')}</p>
+                        </label>
+                        <Select
+                          value={settings.compact_folder_layout || 'horizontal'}
+                          onChange={(val) => updateSetting('compact_folder_layout', val)}
+                          options={[
+                            { value: 'horizontal', label: t('settings.scrollHorizontal') },
+                            { value: 'vertical', label: t('settings.scrollVertical') },
+                          ]}
+                        />
+                        {(settings.compact_folder_layout || 'horizontal') === 'vertical' && (
+                          <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
+                            <div>
+                              <span className="text-sm font-medium">{t('settings.compactSidebarCollapsed')}</span>
+                              <p className="text-xs text-muted-foreground">{t('settings.compactSidebarCollapsedDesc')}</p>
+                            </div>
+                            <button
+                              onClick={() => updateSetting('compact_sidebar_collapsed', !(settings.compact_sidebar_collapsed ?? false))}
+                              className={`h-6 w-11 rounded-full transition-colors ${(settings.compact_sidebar_collapsed ?? false) ? 'bg-primary' : 'bg-accent'}`}
+                            >
+                              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${(settings.compact_sidebar_collapsed ?? false) ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                     <div className="space-y-3">
                         <label className="block">
                           <span className="text-base font-medium">{t('settings.windowEffect')}</span>

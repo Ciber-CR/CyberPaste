@@ -21,6 +21,8 @@ pub struct AppSettings {
     pub float_above_taskbar: bool,
     pub view_mode: String, // "full" or "compact"
     pub scroll_direction: String, // "horizontal" or "vertical"
+    pub compact_folder_layout: String, // "horizontal" or "vertical"
+    pub compact_sidebar_collapsed: bool,
     pub pinned: bool,
     pub image_editor_path: String,
 
@@ -60,6 +62,8 @@ impl Default for AppSettings {
             float_above_taskbar: true,
             view_mode: "full".to_string(),
             scroll_direction: "horizontal".to_string(),
+            compact_folder_layout: "horizontal".to_string(),
+            compact_sidebar_collapsed: false,
             pinned: false,
             image_editor_path: "".to_string(),
 

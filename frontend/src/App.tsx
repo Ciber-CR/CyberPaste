@@ -942,6 +942,15 @@ function App() {
             reorderTargetClipId={reorderTargetClipId}
             reorderTargetPosition={reorderTargetPosition}
             reorderEnabled={!!selectedFolder}
+            compactFolderLayout={settings?.compact_folder_layout || 'horizontal'}
+            compactSidebarCollapsed={settings?.compact_sidebar_collapsed ?? false}
+            onToggleSidebar={async () => {
+              if (!settings) return;
+              const newCollapsed = !settings.compact_sidebar_collapsed;
+              const newSettings = { ...settings, compact_sidebar_collapsed: newCollapsed };
+              await invoke('save_settings', { settings: newSettings });
+              setSettings(newSettings);
+            }}
           />
         ) : (
           <div

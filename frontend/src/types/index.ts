@@ -34,6 +34,8 @@ export interface Settings {
   float_above_taskbar?: boolean;
   view_mode?: 'full' | 'compact';
   scroll_direction?: 'horizontal' | 'vertical';
+  compact_folder_layout?: 'horizontal' | 'vertical';
+  compact_sidebar_collapsed?: boolean;
   pinned?: boolean;
   auto_paste: boolean;
   ignore_ghost_clips: boolean;
