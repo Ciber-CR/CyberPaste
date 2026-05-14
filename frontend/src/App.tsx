@@ -55,6 +55,8 @@ function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
 
 function App() {
   const [clips, setClips] = useState<AppClipboardItem[]>([]);
+  const clipsRef = useRef(clips);
+  clipsRef.current = clips;
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +79,10 @@ function App() {
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [dragTargetFolderId, setDragTargetFolderId] = useState<string | null>(null);
 
+  // Reorder state
+  const [reorderTargetClipId, setReorderTargetClipId] = useState<string | null>(null);
+  const [reorderTargetPosition, setReorderTargetPosition] = useState<'before' | 'after' | null>(null);
+
   // Add Folder Modal State
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -87,6 +93,8 @@ function App() {
     clipId: null as string | null,
     targetFolderId: undefined as string | null | undefined,
     pendingDrag: null as { clipId: string; startX: number; startY: number } | null,
+    reorderTargetClipId: null as string | null,
+    reorderTargetPosition: null as 'before' | 'after' | null,
   });
 
   const effectiveTheme = useTheme(theme);
@@ -140,7 +148,7 @@ function App() {
     // Persist window size on change
     const persistWindow = debounce(async () => {
       if (isTogglingRef.current) return;
-      
+
       const currentSettings = settingsRef.current;
       if (!currentSettings) return;
 
@@ -152,6 +160,11 @@ function App() {
       if (await appWindow.isVisible()) {
           // Guard: don't let full-width "leak" into compact mode saved width
           if (currentSettings.view_mode === 'compact' && logicalSize.width > 1000) {
+              return;
+          }
+
+          // Guard: reject corrupted heights from animation/resize events
+          if (logicalSize.height < 100 || logicalSize.height > 2000) {
               return;
           }
 
@@ -358,9 +371,42 @@ function App() {
         return;
       }
 
-      // If we are already dragging, update position
+      // If we are already dragging, update position and detect reorder target
       if (state.isDragging) {
         setDragPosition({ x: e.clientX, y: e.clientY });
+
+        // Detect reorder target using clips state for reliable lookup
+        if (selectedFolderRef.current && clipsRef.current.length > 0) {
+          let closestId: string | null = null;
+          let closestDist = Infinity;
+          let closestRect: DOMRect | null = null;
+
+          for (const clip of clipsRef.current) {
+            if (clip.id === state.clipId) continue;
+            const card = document.querySelector(`[data-clip-id="${clip.id}"]`);
+            if (!card) continue;
+
+            const rect = card.getBoundingClientRect();
+            const cardCenterY = rect.top + rect.height / 2;
+            const dist = Math.abs(e.clientY - cardCenterY);
+            if (dist < closestDist) {
+              closestDist = dist;
+              closestId = clip.id;
+              closestRect = rect;
+            }
+          }
+
+          if (closestId && closestDist < 300 && closestRect) {
+            const midY = closestRect.top + closestRect.height / 2;
+            const position = e.clientY < midY ? 'before' : 'after';
+            if (dragStateRef.current.reorderTargetClipId !== closestId || dragStateRef.current.reorderTargetPosition !== position) {
+              setReorderTargetClipId(closestId);
+              setReorderTargetPosition(position);
+              dragStateRef.current.reorderTargetClipId = closestId;
+              dragStateRef.current.reorderTargetPosition = position;
+            }
+          }
+        }
         return;
       }
 
@@ -417,38 +463,45 @@ function App() {
     document.body.classList.add('is-dragging');
   };
 
-  const finishDrag = () => {
-    if (dragStateRef.current.targetFolderId !== undefined && dragStateRef.current.clipId) {
-      // We only move if targetFolderId was explicitly set by a hover event.
-      // Wait, how do we distinguish "Not Hovering" vs "Hovering 'All' (null)"?
-      // We will make ControlBar pass a specific sentinel for "No Target" when leaving?
-      // Or simply: ControlBar tracks hover. If hover, it calls setDragTargetFolderId.
-      // If we drop and dragTargetFolderId is valid, we move.
-      // BUT 'null' is a valid folder ID (All).
-      // Let's use a generic 'undefined' for "No Target".
-    }
+  const finishDrag = async () => {
+    const { clipId, targetFolderId, reorderTargetClipId, reorderTargetPosition } = dragStateRef.current;
 
-    // Actually, simpler:
-    // When MouseUp happens, we check dragTargetFolderId state.
-    // If it is NOT undefined, we execute move.
+    // Save reorder targets before clearing state
+    const reorderClipId = reorderTargetClipId;
+    const reorderPos = reorderTargetPosition;
 
-    // IMPORTANT: State updates in React are async. accessing `dragTargetFolderId` state inside event listener might be stale?
-    // That's why we use `dragStateRef`.
-
-    const { clipId, targetFolderId } = dragStateRef.current;
-    if (clipId && targetFolderId !== undefined) {
-      handleMoveClip(clipId, targetFolderId);
-    }
-
+    // Clear all state immediately
     setDraggingClipId(null);
     setDragTargetFolderId(null);
+    setReorderTargetClipId(null);
+    setReorderTargetPosition(null);
     dragStateRef.current = {
       isDragging: false,
       clipId: null,
       targetFolderId: undefined,
       pendingDrag: null,
+      reorderTargetClipId: null,
+      reorderTargetPosition: null,
     };
     document.body.classList.remove('is-dragging');
+
+    // Handle reorder drop (priority over folder move)
+    if (clipId && reorderClipId && reorderPos && selectedFolderRef.current) {
+      try {
+        await invoke('reorder_clip', {
+          clipUuid: clipId,
+          targetUuid: reorderClipId,
+          position: reorderPos,
+        });
+        await loadClips(selectedFolderRef.current);
+        await loadFolders();
+        refreshTotalCount();
+      } catch (e) {
+        console.error('[finishDrag] Failed to reorder clip:', e);
+      }
+    } else if (clipId && targetFolderId !== undefined) {
+      handleMoveClip(clipId, targetFolderId);
+    }
   };
 
   const handleDragHover = (folderId: string | null) => {
@@ -648,14 +701,13 @@ function App() {
   const [moveToFolderClipId, setMoveToFolderClipId] = useState<string | null>(null);
 
   const toggleViewMode = useCallback(async () => {
-    console.log('toggleViewMode triggered');
     isTogglingRef.current = true;
     try {
       await invoke('toggle_view_mode');
     } catch (e) {
       console.error('Failed to toggle view mode:', e);
     } finally {
-        setTimeout(() => { isTogglingRef.current = false; }, 1200);
+        setTimeout(() => { isTogglingRef.current = false; }, 2500);
     }
   }, []);
 
@@ -675,7 +727,7 @@ function App() {
     } catch (e) {
       console.error('Failed to reset size:', e);
     } finally {
-        setTimeout(() => { isTogglingRef.current = false; }, 1200);
+        setTimeout(() => { isTogglingRef.current = false; }, 2500);
     }
   }, [settings]);
 
@@ -755,7 +807,7 @@ function App() {
   const handleMoveToFolder = async (clipId: string, folderId: string | null) => {
     try {
       await invoke('move_to_folder', { clipId, folderId });
-      await loadClips(true);
+      await loadClips(selectedFolderRef.current);
       await loadFolders();
       refreshTotalCount();
       toast.success(folderId ? 'Moved to folder' : 'Moved to main clipboard');
@@ -851,6 +903,9 @@ function App() {
             onDragLeave={handleDragLeave}
             isDragging={!!draggingClipId}
             dragTargetFolderId={dragTargetFolderId}
+            reorderTargetClipId={reorderTargetClipId}
+            reorderTargetPosition={reorderTargetPosition}
+            reorderEnabled={!!selectedFolder}
           />
         ) : (
           <div
@@ -891,7 +946,7 @@ function App() {
               // Add toggle button to ControlBar
               onToggleMode={toggleViewMode}
               viewMode={settings?.view_mode || 'full'}
-              isPinned={settings?.pinned}
+              isPinned={settings?.pinned ?? false}
               onTogglePin={handleTogglePin}
               onResetSize={handleResetSize}
             />
@@ -906,10 +961,12 @@ function App() {
                 onPaste={handlePaste}
                 onCopy={handleCopy}
                 onLoadMore={loadMore}
-                // Simulated Drag Props
                 onDragStart={startDrag}
                 onCardContextMenu={(e, clipId) => handleContextMenu(e, 'card', clipId)}
                 scrollDirection={settings?.scroll_direction || 'horizontal'}
+                reorderTargetClipId={reorderTargetClipId}
+                reorderTargetPosition={reorderTargetPosition}
+                reorderEnabled={!!selectedFolder}
               />
             </main>
           </div>

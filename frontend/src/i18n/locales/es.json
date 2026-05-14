@@ -33,6 +33,8 @@
     "folderCreated": "Carpeta \"{{name}}\" creada",
     "folderRenamed": "Renombrada a \"{{name}}\"",
     "folderDeleted": "Carpeta eliminada",
+    "createNew": "Crear Nueva Carpeta",
+    "folderName": "Nombre de la Carpeta",
     "folderNamePlaceholder": "Nombre de la carpeta"
   },
   "contextMenu": {
@@ -94,10 +96,11 @@
     "noIgnoredApps": "No hay aplicaciones ignoradas",
     "addApp": "Añadir Aplicación",
     "add": "Añadir",
+    "historyLimit": "Límite del Historial",
     "clearHistory": "Limpiar Historial",
     "clearHistoryTitle": "Limpiar Historial",
-    "clearHistoryMessage": "¿Estás seguro de que quieres borrar TODO el historial? Esto no se puede deshacer.",
-    "clearHistorySuccess": "Historial limpiado con éxito.",
+    "clearHistoryMessage": "Esto eliminará todos los clips del Portapapeles principal. Los clips dentro de tus carpetas están seguros y NO serán eliminados.",
+    "clearHistorySuccess": "Historial limpiado. Contenido de carpetas preservado.",
     "removeDuplicates": "Eliminar Duplicados",
     "removeDuplicatesSuccess": "Eliminados {{count}} clips duplicados",
     "provider": "Proveedor",

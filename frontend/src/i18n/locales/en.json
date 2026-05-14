@@ -33,6 +33,8 @@
     "folderCreated": "Folder \"{{name}}\" created",
     "folderRenamed": "Renamed to \"{{name}}\"",
     "folderDeleted": "Folder deleted",
+    "createNew": "Create New Folder",
+    "folderName": "Folder Name",
     "folderNamePlaceholder": "Folder name"
   },
   "contextMenu": {
@@ -97,10 +99,11 @@
     "noIgnoredApps": "No ignored applications",
     "addApp": "Add Application",
     "add": "Add",
+    "historyLimit": "History Limit",
     "clearHistory": "Clear History",
     "clearHistoryTitle": "Clear History",
-    "clearHistoryMessage": "Are you sure you want to clear your ENTIRE clipboard history? This cannot be undone.",
-    "clearHistorySuccess": "Clipboard history cleared successfully.",
+    "clearHistoryMessage": "This will delete all clips in the main Clipboard. Clips inside your folders are safe and will NOT be deleted.",
+    "clearHistorySuccess": "Clipboard history cleared. Folder contents preserved.",
     "removeDuplicates": "Remove Duplicates",
     "removeDuplicatesSuccess": "Removed {{count}} duplicate clips",
     "provider": "Provider",

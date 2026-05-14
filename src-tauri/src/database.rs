@@ -120,6 +120,21 @@ impl Database {
         )
         .await?;
 
+        add_column_if_missing(
+            &self.pool,
+            "ALTER TABLE clips ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+        )
+        .await?;
+
+        // Backfill: assign sort_order based on current row id for existing clips
+        sqlx::query(
+            r#"
+            UPDATE clips SET sort_order = id WHERE sort_order = 0
+            "#,
+        )
+        .execute(&self.pool)
+        .await?;
+
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS clip_images (

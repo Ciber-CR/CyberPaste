@@ -1,6 +1,6 @@
 // HMR Force Reload
 import React from 'react';
-import { Search, Plus, MoreVertical, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff, RotateCcw } from 'lucide-react';
+import { Search, Plus, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff, RotateCcw } from 'lucide-react';
 import { FolderItem } from '../types';
 import { clsx } from 'clsx';
 
@@ -63,7 +63,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
     <div
       style={style}
       className={clsx(
-        'relative flex items-center gap-2 border-b border-border bg-card/50 px-4 h-[50px] backdrop-blur-md',
+        'relative flex items-center gap-1 border-b border-border bg-card/50 px-4 h-[50px] backdrop-blur-md',
         theme === 'dark' ? 'text-white' : 'text-slate-900'
       )}
     >
@@ -78,7 +78,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           <Search size={18} />
         </button>
 
-        <div className="mx-2 h-6 w-px bg-border/50" />
+        <div className="mx-1 h-6 w-px bg-border/50" />
       </div>
 
       <div className="flex-1 relative h-full flex items-center min-w-0">

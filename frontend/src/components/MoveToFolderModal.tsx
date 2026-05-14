@@ -1,7 +1,6 @@
 import React from 'react';
 import { X, Folder, FolderPlus } from 'lucide-react';
 import { FolderItem } from '../types';
-import { useTranslation } from 'react-i18next';
 
 interface MoveToFolderModalProps {
   isOpen: boolean;
@@ -11,7 +10,6 @@ interface MoveToFolderModalProps {
 }
 
 export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({ isOpen, folders, onClose, onSelect }) => {
-  const { t } = useTranslation();
 
   if (!isOpen) return null;
 

@@ -14,11 +14,14 @@ interface ClipCardProps {
   onCopy: () => void;
   onDragStart: (clipId: string, startX: number, startY: number) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  reorderDropIndicator?: 'before' | 'after' | null;
+  reorderEnabled?: boolean;
+  clipIndex?: number;
 }
 
 export const ClipCard = memo(
   forwardRef<HTMLDivElement, ClipCardProps>(function ClipCard(
-    { clip, isSelected, onPaste, onCopy, onDragStart, onContextMenu }: ClipCardProps,
+    { clip, isSelected, onPaste, onCopy, onDragStart, onContextMenu, reorderDropIndicator, reorderEnabled, clipIndex }: ClipCardProps,
     ref
   ) {
     const { t } = useTranslation();
@@ -105,7 +108,7 @@ export const ClipCard = memo(
       return Math.round(index * hueStep);
     }, [title]);
 
-    const glowBackground = useMotionTemplate`radial-gradient(180px circle at ${mouseX}px ${mouseY}px, hsl(${appHue} 90% 64% / 0.9), transparent 65%)`;
+    const glowBackground = useMotionTemplate`radial-gradient(180px circle at ${mouseX}px ${mouseY}px, hsl(${appHue} 65% 55% / 0.7), transparent 65%)`;
 
     const handleContextMenu = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -127,14 +130,23 @@ export const ClipCard = memo(
           width: '100%',
           maxWidth: 600,
           height: `calc(100% - ${LAYOUT.CARD_VERTICAL_PADDING * 2}px)`,
+          position: 'relative',
         }}
         className="flex-shrink-0"
       >
+        {/* Drop indicator - before */}
+        {reorderEnabled && reorderDropIndicator === 'before' && (
+          <div className="absolute -top-1.5 left-0 right-0 h-1 bg-cyan-400 rounded-full z-30 shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
+        )}
+        {/* Drop indicator - after */}
+        {reorderEnabled && reorderDropIndicator === 'after' && (
+          <div className="absolute -bottom-1.5 left-0 right-0 h-1 bg-cyan-400 rounded-full z-30 shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
+        )}
         <div
           data-el="clip-card-inner"
           onMouseDown={(e) => {
             if (e.button === 0) {
-              e.preventDefault(); // Stop native drag
+              e.preventDefault();
               onDragStart(clip.id, e.clientX, e.clientY);
             }
           }}
@@ -147,8 +159,11 @@ export const ClipCard = memo(
           style={
             {
               '--app-hue': `${appHue}`,
-              borderColor: isSelected ? `hsl(${appHue} 82% 60%)` : 'rgba(255, 255, 255, 0.2)',
+              borderColor: isSelected ? `hsl(${appHue} 60% 50%)` : 'rgba(255, 255, 255, 0.1)',
               borderWidth: isSelected ? '2px' : '1px',
+              boxShadow: isSelected
+                ? `0 0 25px hsl(${appHue} 60% 45% / 0.2), inset 0 0 15px hsl(${appHue} 60% 45% / 0.1)`
+                : 'none'
             } as React.CSSProperties
           }
           className={clsx(
@@ -175,37 +190,67 @@ export const ClipCard = memo(
 
           <div
             data-el="clip-card-header"
-            className="relative z-10 flex flex-shrink-0 items-center gap-2 px-2 py-1.5"
-            style={{ backgroundColor: `hsl(${appHue} 82% 60%)` }}
+            className="relative z-10 flex flex-shrink-0 items-center gap-2 px-2.5 py-2 border-b border-white/5 bg-black/20 backdrop-blur-sm"
           >
             {clip.source_icon && (
-              <img
-                src={`data:image/png;base64,${clip.source_icon}`}
-                alt=""
-                draggable="false"
-                className="h-4 w-4 object-contain"
-              />
+              <div className="flex items-center justify-center p-0.5 rounded-sm bg-black/20 border border-white/5">
+                <img
+                  src={`data:image/png;base64,${clip.source_icon}`}
+                  alt=""
+                  draggable="false"
+                  className="h-3.5 w-3.5 object-contain"
+                />
+              </div>
             )}
-            <span className="flex-1 truncate text-[11px] font-bold uppercase tracking-wider text-foreground">
+            {clipIndex !== undefined && (
+              <span className="text-[9px] font-mono opacity-20 select-none">#{clipIndex}</span>
+            )}
+            <span 
+              className="flex-1 truncate text-[10px] font-bold uppercase tracking-[0.1em]"
+              style={{ color: `hsl(${appHue} 85% 75%)` }}
+            >
               {title}
             </span>
-            <button
-              data-el="clip-card-copy-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCopy();
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="rounded-md p-1 opacity-0 transition-all hover:bg-black/10 group-hover:opacity-100"
-              title="Copy to clipboard"
-            >
-              {copied ? (
-                <Check size={14} className="text-emerald-500" />
-              ) : (
-                <Copy size={14} className="text-foreground/70 hover:text-foreground" />
-              )}
-            </button>
+            <div className="relative flex items-center h-full min-w-[40px] justify-end">
+              {/* Pilot Light LED - Slides left on hover */}
+              <motion.div 
+                className="h-1.5 w-1.5 rounded-full shadow-lg pointer-events-none absolute right-2"
+                animate={{ 
+                  x: hovered ? -24 : 0,
+                  opacity: 1
+                }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                style={{ 
+                  backgroundColor: `hsl(${appHue} 85% 75%)`,
+                  boxShadow: `0 0 10px 1px hsl(${appHue} 85% 75% / 0.5)`
+                }}
+              />
+              
+              {/* Copy Button - Slides in on hover */}
+              <motion.button
+                data-el="clip-card-copy-btn"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ 
+                  opacity: hovered ? 1 : 0,
+                  x: hovered ? 0 : 20
+                }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopy();
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="rounded-md p-1 hover:bg-white/10 text-foreground/70 hover:text-foreground relative z-10"
+                title="Copy to clipboard"
+              >
+                {copied ? (
+                  <Check size={14} className="text-emerald-500" />
+                ) : (
+                  <Copy size={14} />
+                )}
+              </motion.button>
+            </div>
           </div>
 
           <div data-el="clip-card-content" className="relative z-10 flex-1 overflow-hidden bg-card/90 p-2">

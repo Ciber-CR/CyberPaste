@@ -154,7 +154,6 @@ impl SettingsManager {
             let mut lock = self.settings.write();
             *lock = new_settings.clone();
         }
-        // TODO - what happens if multiple threads call save at the same time?
         let json = serde_json::to_string_pretty(&new_settings).map_err(|e| e.to_string())?;
         if let Some(parent) = self.file_path.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -162,5 +161,13 @@ impl SettingsManager {
         fs::write(&self.file_path, json).map_err(|e| e.to_string())?;
 
         Ok(())
+    }
+
+    pub async fn update<F>(&self, f: F) -> Result<(), String>
+    where F: FnOnce(&mut AppSettings)
+    {
+        let mut settings = self.get();
+        f(&mut settings);
+        self.save(settings)
     }
 }

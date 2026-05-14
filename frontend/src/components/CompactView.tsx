@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { ClipboardItem as AppClip, FolderItem } from '../types';
-import { Search, List, Maximize2, Hash, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw } from 'lucide-react';
+import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
@@ -38,6 +38,9 @@ interface CompactViewProps {
   onDragHover: (folderId: string | null) => void;
   onDragLeave: () => void;
   isDragging: boolean;
+  reorderTargetClipId?: string | null;
+  reorderTargetPosition?: 'before' | 'after' | null;
+  reorderEnabled?: boolean;
   dragTargetFolderId: string | null;
 }
 
@@ -63,6 +66,9 @@ export const CompactView: React.FC<CompactViewProps> = ({
   onDragHover,
   onDragLeave,
   isDragging,
+  reorderTargetClipId,
+  reorderTargetPosition,
+  reorderEnabled,
   dragTargetFolderId
 }) => {
   const { t } = useTranslation();
@@ -188,7 +194,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
             className={cn(
               "px-3 py-1 rounded-full text-[10px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border",
               selectedFolder === null && !dragTargetFolderId
-                ? "bg-white/10 text-white border-white/20 shadow-[0_0_8px_rgba(255,255,255,0.05)]" 
+                ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.3)]"
                 : dragTargetFolderId === null && isDragging
                 ? "bg-cyan-500/30 border-cyan-400 text-white"
                 : "bg-white/5 hover:bg-white/10 border-transparent opacity-60 hover:opacity-100"
@@ -210,7 +216,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
                 className={cn(
                   "px-3 py-1 rounded-full text-[10px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border",
                   selectedFolder === folder.id && !dragTargetFolderId
-                    ? "bg-white/10 text-white border-white/20" 
+                    ? "bg-primary/10 text-white/80 border-primary/60 shadow-[0_0_12px_rgba(99,102,241,0.3)] ring-1 ring-primary/40"
                     : dragTargetFolderId === folder.id
                     ? "bg-cyan-500/30 border-cyan-400 text-white"
                     : "bg-white/5 hover:bg-white/10 border-transparent opacity-60 hover:opacity-100"
@@ -218,7 +224,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
                 onMouseEnter={() => isDragging && onDragHover(folder.id)}
                 onMouseLeave={onDragLeave}
               >
-                <Icon size={10} style={{ color: folder.color || undefined }} />
+                <Icon size={10} style={{ color: folder.color || undefined }} className={selectedFolder === folder.id ? "text-primary" : "text-white/30"} />
                 {folder.name}
                 <span className={cn("opacity-40 text-[9px]", selectedFolder === folder.id && "opacity-80")}>({folder.item_count || 0})</span>
               </button>
@@ -235,19 +241,26 @@ export const CompactView: React.FC<CompactViewProps> = ({
           </div>
         ) : (
           clips.map((clip, index) => (
-            <div 
-              key={clip.id}
-              onClick={() => onPaste(clip.id)}
-              onContextMenu={(e) => onContextMenu?.(e, clip.id)}
-              onMouseDown={(e) => {
-                if (e.button === 0) {
-                  e.preventDefault(); // Stop native drag
-                  onDragStart(clip.id, e.clientX, e.clientY);
-                }
-              }}
-              draggable="false"
-              className="group relative flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer overflow-hidden h-12 flex-shrink-0"
-            >
+            <React.Fragment key={clip.id}>
+              {reorderEnabled && reorderTargetClipId === clip.id && reorderTargetPosition === 'before' && (
+                <div className="h-0.5 bg-cyan-400 rounded-full mx-2 shadow-[0_0_8px_rgba(34,211,238,0.6)] flex-shrink-0" />
+              )}
+              <div
+                data-clip-id={clip.id}
+                onClick={() => onPaste(clip.id)}
+                onContextMenu={(e) => onContextMenu?.(e, clip.id)}
+                onMouseDown={(e) => {
+                  if (e.button === 0) {
+                    e.preventDefault();
+                    onDragStart(clip.id, e.clientX, e.clientY);
+                  }
+                }}
+                draggable="false"
+                className={clsx(
+                   "group relative flex items-center gap-3 py-1.5 px-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer overflow-hidden h-10 flex-shrink-0",
+                  reorderEnabled && "cursor-grab active:cursor-grabbing"
+                )}
+              >
               <div className="flex-shrink-0 w-8 flex items-center justify-center">
                 <span className="text-[10px] opacity-30 font-mono">#{clips.length - index}</span>
               </div>
@@ -277,6 +290,32 @@ export const CompactView: React.FC<CompactViewProps> = ({
                       )}
                     </div>
                     <span className="text-xs font-medium text-cyan-400/80 truncate">{t('common.image')}</span>
+                    {(() => {
+                      try {
+                        const parsed = clip.metadata ? JSON.parse(clip.metadata) as { size_bytes?: number; width?: number; height?: number } : null;
+                        const w = parsed?.width || 0;
+                        const h = parsed?.height || 0;
+                        const kb = parsed?.size_bytes ? Math.round(parsed.size_bytes / 1024) : 0;
+                        if (w && h && kb) {
+                          return (
+                            <span className="text-[10px] opacity-40 flex items-center gap-1.5 whitespace-nowrap">
+                              <span className="flex items-center gap-0.5">
+                                <MoveHorizontal size={9} />
+                                {w}
+                              </span>
+                              <span className="opacity-50">×</span>
+                              <span className="flex items-center gap-0.5">
+                                <MoveVertical size={9} />
+                                {h}
+                              </span>
+                              <span className="opacity-50">•</span>
+                              <span>{kb}KB</span>
+                            </span>
+                          );
+                        }
+                      } catch {}
+                      return null;
+                    })()}
                   </>
                 ) : (
                   <span className="text-xs font-medium truncate leading-none">
@@ -287,22 +326,26 @@ export const CompactView: React.FC<CompactViewProps> = ({
 
               <div className="flex-shrink-0 flex items-center gap-3 pr-2">
                 <span className="text-[10px] opacity-30 flex items-center gap-1 whitespace-nowrap">
-                  <Clock size={10} />
+            <Clock size={10} className={selectedFolder === null ? "text-indigo-400" : "text-current"} />
                   {formatDistanceToNow(new Date(clip.created_at), { addSuffix: false })}
                 </span>
                 
                 {/* Hover Actions */}
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button 
+                    <button
                     onClick={(e) => { e.stopPropagation(); onDelete(clip.id); }}
                     className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 transition-colors"
                     title={t('common.delete')}
                    >
-                     <Trash2 size={12} />
-                   </button>
-                </div>
-              </div>
-            </div>
+                      <Trash2 size={12} />
+                    </button>
+                 </div>
+               </div>
+             </div>
+              {reorderEnabled && reorderTargetClipId === clip.id && reorderTargetPosition === 'after' && (
+                <div className="h-0.5 bg-cyan-400 rounded-full mx-2 shadow-[0_0_8px_rgba(34,211,238,0.6)] flex-shrink-0" />
+              )}
+            </React.Fragment>
           ))
         )}
         {isLoading && (

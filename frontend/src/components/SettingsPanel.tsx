@@ -16,6 +16,8 @@ import {
   ExternalLink,
   Terminal,
   Heart,
+  Flame,
+  RotateCcw,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
@@ -261,6 +263,20 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
     action: async () => {},
   });
 
+  const handleResetLayout = async () => {
+    try {
+      await emit('reset-window-layout', {});
+      toast.success("Layout restored to defaults!");
+      // Small delay to let user see success message
+      setTimeout(() => {
+        onClose();
+      }, 800);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to send reset command");
+    }
+  };
+
   const loadFolders = async () => {
     try {
       const data = await invoke<FolderItem[]>('get_folders');
@@ -314,7 +330,7 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
   const confirmClearHistory = () => {
     setConfirmDialog({
       isOpen: true,
-      title: t('settings.clearHistoryTitle'),
+      title: t('settings.clearHistory'),
       message: t('settings.clearHistoryMessage'),
       action: async () => {
         try {
@@ -605,7 +621,7 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
 
                       <div className="space-y-3 col-span-2 mt-2">
                         <label className="block">
-                          <span className="text-sm font-bold uppercase tracking-tight text-primary/70">{t('settings.historyLimit') || 'History Limit'}</span>
+                          <span className="text-sm font-bold uppercase tracking-tight text-primary/70">{t('settings.historyLimit')}</span>
                           <p className="text-xs text-muted-foreground">Maximum number of clips to keep in history (excludes folders).</p>
                         </label>
                         <div className="flex items-center gap-4 bg-accent/10 p-3 rounded-xl border border-border/40">
@@ -737,6 +753,25 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.ignore_ghost_clips ? 'translate-x-5' : 'translate-x-0.5'}`}
                         />
                       </button>
+                    </div>
+                  </section>
+
+                  <section className="space-y-4 pt-4 border-t border-border/30">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-rose-500/80 flex items-center gap-2">
+                        <Flame size={16} />
+                        Panic Room
+                    </h3>
+                    <div className="flex flex-col gap-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5">
+                        <p className="text-xs text-muted-foreground">
+                            If the window becomes deformed, off-screen, or behaves erratically, use this to restore all layout and visibility settings to factory defaults.
+                        </p>
+                        <button
+                            onClick={handleResetLayout}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-rose-500 text-white font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
+                        >
+                            <RotateCcw size={16} />
+                            Reset Layout & Visibility
+                        </button>
                     </div>
                   </section>
 
@@ -970,7 +1005,7 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           setConfirmDialog({
                             isOpen: true,
                             title: "Import Backup?",
-                            message: "This will REPLACE ALL current clips, folders, and settings. This action cannot be undone.",
+                             message: "This will REPLACE all current clips, folders, images, and settings with the backup data. Your current data will be lost. Export a backup first if you want to keep it.",
                             action: async () => {
                               const id = toast.loading("Restoring backup...");
                               try {
@@ -995,7 +1030,7 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                       </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      * Backups include all clips, images, folders, and settings.
+                       * Export saves all clips, images, folders, and settings. Import replaces everything with the backup data.
                     </p>
                   </section>
                 </>
@@ -1243,8 +1278,8 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
               {activeTab === 'about' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex flex-col items-center text-center space-y-4 py-6">
-                    <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)]">
-                      <SettingsIcon size={40} className="text-primary animate-[spin_10s_linear_infinite]" />
+                    <div className="w-32 h-32 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_40px_rgba(var(--primary-rgb),0.15)] overflow-hidden">
+                      <img src="/logo.png" alt="CyberPaste Logo" className="w-28 h-28 object-contain animate-in fade-in zoom-in duration-1000" />
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold tracking-tight">CyberPaste</h3>

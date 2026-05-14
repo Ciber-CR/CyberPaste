@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 // @ts-ignore
 import { Grid, GridImperativeAPI, CellComponentProps } from 'react-window';
 import { ClipCard } from './ClipCard';
@@ -20,6 +20,9 @@ interface ClipListProps {
   resetToken?: number;
   viewMode?: 'full' | 'compact';
   scrollDirection?: 'horizontal' | 'vertical';
+  reorderTargetClipId?: string | null;
+  reorderTargetPosition?: 'before' | 'after' | null;
+  reorderEnabled?: boolean;
 }
 
 export const ClipList: React.FC<ClipListProps> = ({
@@ -33,6 +36,9 @@ export const ClipList: React.FC<ClipListProps> = ({
   onCardContextMenu,
   resetToken = 0,
   scrollDirection = 'horizontal',
+  reorderTargetClipId,
+  reorderTargetPosition,
+  reorderEnabled,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -91,91 +97,13 @@ export const ClipList: React.FC<ClipListProps> = ({
     }
   }, [selectedClipIndex, isVertical, columnCount]);
 
-  // Smooth Scroll State
-  const scrollTarget = useRef(0);
-  const scrollCurrent = useRef(0);
-  const rafId = useRef<number | null>(null);
-
-  const lerp = (start: number, end: number, factor: number) => {
-    return start + (end - start) * factor;
-  };
-
-  const animate = useCallback(() => {
-    const element = gridRef.current?.element;
-    if (!element) return;
-
-    const diff = Math.abs(scrollTarget.current - scrollCurrent.current);
-    
-    if (diff > 0.5) {
-      scrollCurrent.current = lerp(scrollCurrent.current, scrollTarget.current, 0.2);
-      if (isVertical) {
-        element.scrollTop = scrollCurrent.current;
-      } else {
-        element.scrollLeft = scrollCurrent.current;
-      }
-      rafId.current = requestAnimationFrame(animate);
-    } else {
-      scrollCurrent.current = scrollTarget.current;
-      if (isVertical) {
-        element.scrollTop = scrollCurrent.current;
-      } else {
-        element.scrollLeft = scrollCurrent.current;
-      }
-      rafId.current = null;
-    }
-  }, [isVertical]);
-
+  // Reset scroll position on view change or data refresh
   useEffect(() => {
-    // Reset scroll on view change or refresh
-    scrollTarget.current = 0;
-    scrollCurrent.current = 0;
-    if (rafId.current) cancelAnimationFrame(rafId.current);
-    rafId.current = null;
+    if (gridRef.current?.element) {
+      gridRef.current.element.scrollTop = 0;
+      gridRef.current.element.scrollLeft = 0;
+    }
   }, [resetToken, isVertical]);
-
-  // Prevent rapid-fire scroll triggers
-  const lastScrollTime = useRef(0);
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const element = gridRef.current?.element;
-    if (!element) return;
-
-    e.preventDefault();
-    
-    // Cooldown to ensure snappy one-at-a-time feel
-    const now = Date.now();
-    if (now - lastScrollTime.current < 150) return;
-    
-    const delta = e.deltaY;
-    if (Math.abs(delta) < 5) return; // Ignore micro-scrolls
-
-    const maxScroll = isVertical 
-      ? element.scrollHeight - element.clientHeight 
-      : element.scrollWidth - element.clientWidth;
-
-    const snapSize = isVertical ? 230 : COLUMN_WIDTH;
-
-    // Sync current scroll
-    const currentActual = isVertical ? element.scrollTop : element.scrollLeft;
-    if (Math.abs(currentActual - scrollCurrent.current) > 10) {
-        scrollCurrent.current = currentActual;
-        scrollTarget.current = currentActual;
-    }
-
-    if (delta > 0) {
-      // Snap to next
-      scrollTarget.current = Math.min(maxScroll, Math.ceil((scrollCurrent.current + 5) / snapSize) * snapSize);
-    } else {
-      // Snap to previous
-      scrollTarget.current = Math.max(0, Math.floor((scrollCurrent.current - 5) / snapSize) * snapSize);
-    }
-    
-    lastScrollTime.current = now;
-    
-    if (rafId.current === null) {
-      rafId.current = requestAnimationFrame(animate);
-    }
-  };
 
   const handleCellsRendered = (visibleCells: any) => {
     const lastIndex = isVertical ? visibleCells.rowStopIndex * columnCount : visibleCells.columnStopIndex;
@@ -208,11 +136,14 @@ export const ClipList: React.FC<ClipListProps> = ({
       )}>
         <ClipCard
           clip={clip}
+          clipIndex={clips.length - index}
           isSelected={selectedClipId === clip.id}
           onPaste={() => onPaste(clip.id)}
           onCopy={() => onCopy(clip.id)}
           onDragStart={onDragStart}
           onContextMenu={(e: React.MouseEvent) => onCardContextMenu?.(e, clip.id)}
+          reorderDropIndicator={reorderTargetClipId === clip.id ? reorderTargetPosition : null}
+          reorderEnabled={reorderEnabled}
         />
       </div>
     );
@@ -250,9 +181,8 @@ export const ClipList: React.FC<ClipListProps> = ({
         style={{
           height: gridHeight,
           width: containerWidth,
-          scrollBehavior: 'auto',
+          scrollBehavior: 'smooth',
           position: 'relative',
-          overflow: 'hidden'
         }}
         defaultHeight={gridHeight}
         defaultWidth={containerWidth}
@@ -263,7 +193,6 @@ export const ClipList: React.FC<ClipListProps> = ({
         columnWidth={isVertical ? ((containerWidth - SIDE_PADDING) / columnCount) : COLUMN_WIDTH}
         overscanCount={4}
         onCellsRendered={handleCellsRendered}
-        onWheel={handleWheel}
       />
     </div>
   );

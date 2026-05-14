@@ -105,7 +105,12 @@ pub fn run_app() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_x::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new()
+            .with_state_flags(
+                tauri_plugin_window_state::StateFlags::POSITION | tauri_plugin_window_state::StateFlags::MAXIMIZED
+            )
+            .build()
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .manage(db_arc.clone())
@@ -342,6 +347,7 @@ pub fn run_app() {
             commands::paste_clip,
             commands::delete_clip,
             commands::move_to_folder,
+            commands::reorder_clip,
             commands::create_folder,
             commands::rename_folder,
             commands::delete_folder,
@@ -474,9 +480,9 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
                 let start_y = reference_bottom;
 
                 // Set physical size before positioning
-                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { 
-                    width: window_width_px, 
-                    height: window_height_px 
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                    width: window_width_px,
+                    height: window_height_px
                 }));
                 std::thread::sleep(std::time::Duration::from_millis(60));
 
@@ -490,11 +496,11 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
 
                 // Re-apply physical size after show to fix stale webview DPI
                 std::thread::sleep(std::time::Duration::from_millis(50));
-                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { 
-                    width: window_width_px, 
-                    height: window_height_px 
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                    width: window_width_px,
+                    height: window_height_px
                 }));
-                
+
                 let steps = 12;
                 let duration = std::time::Duration::from_millis(8);
                 let dy = (target_y - start_y) as f64 / steps as f64;
@@ -511,11 +517,11 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
                 let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: target_y }));
                 let _ = window.set_focus();
 
-                // Final re-apply physical size to ensure correct rendering
+                // Final size apply after animation — ensures full width overrides window-state plugin
                 std::thread::sleep(std::time::Duration::from_millis(50));
-                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { 
-                    width: window_width_px, 
-                    height: window_height_px 
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                    width: window_width_px,
+                    height: window_height_px
                 }));
 
                 if float_above_taskbar {

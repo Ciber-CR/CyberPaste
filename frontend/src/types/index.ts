@@ -8,6 +8,7 @@ export interface ClipboardItem {
   source_app: string | null;
   source_icon: string | null;
   metadata: string | null;
+  sort_order?: number;
 }
 
 export interface FolderItem {
@@ -36,6 +37,9 @@ export interface Settings {
   pinned?: boolean;
   auto_paste: boolean;
   ignore_ghost_clips: boolean;
+  image_editor_path?: string;
+  window_width?: number;
+  window_height?: number;
   ai_provider?: string;
   ai_api_key?: string;
   ai_model?: string;

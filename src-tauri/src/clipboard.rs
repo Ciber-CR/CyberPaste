@@ -389,8 +389,8 @@ async fn process_clipboard_change(
 
         let _ = sqlx::query(
             r#"
-            INSERT INTO clips (uuid, clip_type, content, text_preview, content_hash, folder_id, is_deleted, is_thumbnail, source_app, source_icon, metadata, created_at, last_accessed)
-            VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO clips (uuid, clip_type, content, text_preview, content_hash, folder_id, is_deleted, is_thumbnail, source_app, source_icon, metadata, sort_order, created_at, last_accessed)
+            VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, ?, (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM clips), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             "#,
         )
         .bind(&clip_uuid)

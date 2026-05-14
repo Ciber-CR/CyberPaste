@@ -86,6 +86,7 @@ impl Default for AppSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(default)]
 pub struct Clip {
     pub id: i64,
     pub uuid: String,
@@ -99,8 +100,31 @@ pub struct Clip {
     pub source_app: Option<String>,
     pub source_icon: Option<String>,
     pub metadata: Option<String>,
+    pub sort_order: i64,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub last_accessed: chrono::DateTime<chrono::Utc>,
+}
+
+impl Default for Clip {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            uuid: String::new(),
+            clip_type: String::new(),
+            content: Vec::new(),
+            text_preview: String::new(),
+            content_hash: String::new(),
+            folder_id: None,
+            is_deleted: false,
+            is_thumbnail: false,
+            source_app: None,
+            source_icon: None,
+            metadata: None,
+            sort_order: 0,
+            created_at: chrono::DateTime::default(),
+            last_accessed: chrono::DateTime::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

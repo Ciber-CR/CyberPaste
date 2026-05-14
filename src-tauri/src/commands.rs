@@ -375,7 +375,7 @@ pub async fn get_clips(
                 sqlx::query_as(
                     r#"
                     SELECT * FROM clips WHERE is_deleted = 0 AND folder_id = ?
-                    ORDER BY created_at DESC LIMIT ? OFFSET ?
+                    ORDER BY sort_order ASC, created_at DESC LIMIT ? OFFSET ?
                 "#,
                 )
                 .bind(numeric_id)
@@ -394,7 +394,7 @@ pub async fn get_clips(
             sqlx::query_as(
                 r#"
                 SELECT * FROM clips WHERE is_deleted = 0
-                ORDER BY created_at DESC LIMIT ? OFFSET ?
+                ORDER BY sort_order ASC, created_at DESC LIMIT ? OFFSET ?
             "#,
             )
             .bind(limit)
@@ -705,6 +705,90 @@ pub async fn move_to_folder(
 }
 
 #[tauri::command]
+pub async fn reorder_clip(
+    clip_uuid: String,
+    target_uuid: String,
+    position: String,
+    db: tauri::State<'_, Arc<Database>>,
+) -> Result<(), String> {
+    let pool = &db.pool;
+
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+
+    let (clip_sort, target_sort): (i64, i64) = sqlx::query_as(
+        r#"
+        SELECT c.sort_order, t.sort_order FROM clips c
+        JOIN clips t ON t.uuid = ?
+        WHERE c.uuid = ?
+        "#,
+    )
+    .bind(&target_uuid)
+    .bind(&clip_uuid)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|e| e.to_string())?
+    .ok_or("Clip or target not found")?;
+
+    let folder_sub = format!(
+        "folder_id = (SELECT folder_id FROM clips WHERE uuid = '{}') AND is_deleted = 0",
+        target_uuid.replace('\'', "''")
+    );
+
+    if position == "before" {
+        if clip_sort < target_sort {
+            // Moving clip forward: shift (clip_sort, target_sort) down by 1
+            sqlx::query(&format!(
+                "UPDATE clips SET sort_order = sort_order - 1 WHERE {} AND sort_order > {} AND sort_order < {}",
+                folder_sub, clip_sort, target_sort
+            ))
+            .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+            sqlx::query("UPDATE clips SET sort_order = ? WHERE uuid = ?")
+                .bind(target_sort - 1).bind(&clip_uuid)
+                .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+        } else {
+            // Moving clip backward: shift [target_sort, clip_sort) up by 1
+            sqlx::query(&format!(
+                "UPDATE clips SET sort_order = sort_order + 1 WHERE {} AND sort_order >= {} AND sort_order < {}",
+                folder_sub, target_sort, clip_sort
+            ))
+            .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+            sqlx::query("UPDATE clips SET sort_order = ? WHERE uuid = ?")
+                .bind(target_sort).bind(&clip_uuid)
+                .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+        }
+    } else {
+        // position == "after"
+        if clip_sort > target_sort {
+            // Moving clip backward: shift (target_sort, clip_sort) up by 1
+            sqlx::query(&format!(
+                "UPDATE clips SET sort_order = sort_order + 1 WHERE {} AND sort_order > {} AND sort_order < {}",
+                folder_sub, target_sort, clip_sort
+            ))
+            .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+            sqlx::query("UPDATE clips SET sort_order = ? WHERE uuid = ?")
+                .bind(target_sort + 1).bind(&clip_uuid)
+                .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+        } else {
+            // Moving clip forward: shift (target_sort, clip_sort] down by 1, then shift (target_sort, ∞) up...
+            // Actually: shift everything > target_sort up by 1, then set clip to target_sort + 1
+            // But we need to account for the clip's old position being vacated
+            // Simplest: shift (target_sort, ∞) up by 1, set clip to target_sort + 1
+            sqlx::query(&format!(
+                "UPDATE clips SET sort_order = sort_order + 1 WHERE {} AND sort_order > {}",
+                folder_sub, target_sort
+            ))
+            .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+            sqlx::query("UPDATE clips SET sort_order = ? WHERE uuid = ?")
+                .bind(target_sort + 1).bind(&clip_uuid)
+                .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+        }
+    }
+
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn create_folder(
     name: String,
     icon: Option<String>,
@@ -825,7 +909,7 @@ pub async fn search_clips(
             if let Some(numeric_id) = folder_id_num {
                 sqlx::query_as(r#"
                     SELECT * FROM clips WHERE is_deleted = 0 AND folder_id = ? AND (text_preview LIKE ? OR content LIKE ?)
-                    ORDER BY created_at DESC LIMIT ? OFFSET ?
+                    ORDER BY sort_order ASC, created_at DESC LIMIT ? OFFSET ?
                 "#)
                 .bind(numeric_id)
                 .bind(&search_pattern)
@@ -840,7 +924,7 @@ pub async fn search_clips(
         None => sqlx::query_as(
             r#"
                 SELECT * FROM clips WHERE is_deleted = 0 AND (text_preview LIKE ? OR content LIKE ?)
-                ORDER BY created_at DESC LIMIT ? OFFSET ?
+                ORDER BY sort_order ASC, created_at DESC LIMIT ? OFFSET ?
             "#,
         )
         .bind(&search_pattern)
@@ -1003,13 +1087,35 @@ pub async fn clear_clipboard_history(db: tauri::State<'_, Arc<Database>>) -> Res
 pub async fn clear_all_clips(db: tauri::State<'_, Arc<Database>>) -> Result<(), String> {
     let pool = &db.pool;
 
-    cleanup_all_clip_image_files(pool).await?;
+    // Only delete clips NOT in folders - folders are always safe
+    let orphan_uuids: Vec<String> = sqlx::query_scalar(
+        r#"SELECT uuid FROM clips WHERE folder_id IS NULL"#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
 
-    sqlx::query(r#"DELETE FROM clip_images"#)
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-    sqlx::query(r#"DELETE FROM clips"#)
+    // Clean up image files for orphan clips
+    for uuid in &orphan_uuids {
+        delete_clip_image_file_by_uuid(pool, uuid).await?;
+    }
+
+    // Delete clip_images for orphan clips
+    if !orphan_uuids.is_empty() {
+        let placeholders: Vec<String> = orphan_uuids.iter().map(|_| "?".to_string()).collect();
+        let query = format!(
+            "DELETE FROM clip_images WHERE clip_uuid IN ({})",
+            placeholders.join(",")
+        );
+        let mut qb = sqlx::query(&query);
+        for uuid in &orphan_uuids {
+            qb = qb.bind(uuid);
+        }
+        qb.execute(pool).await.map_err(|e| e.to_string())?;
+    }
+
+    // Delete orphan clips
+    sqlx::query(r#"DELETE FROM clips WHERE folder_id IS NULL"#)
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -1318,8 +1424,7 @@ pub async fn import_backup(
 
     // 3. Restore Clips
     for clip in data.clips {
-        sqlx::query("INSERT INTO clips (id, uuid, clip_type, content, text_preview, content_hash, folder_id, is_deleted, is_thumbnail, source_app, source_icon, metadata, created_at, last_accessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .bind(clip.id)
+        sqlx::query("INSERT INTO clips (uuid, clip_type, content, text_preview, content_hash, folder_id, is_deleted, is_thumbnail, source_app, source_icon, metadata, sort_order, created_at, last_accessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .bind(clip.uuid)
             .bind(clip.clip_type)
             .bind(clip.content)
@@ -1331,6 +1436,7 @@ pub async fn import_backup(
             .bind(clip.source_app)
             .bind(clip.source_icon)
             .bind(clip.metadata)
+            .bind(clip.sort_order)
             .bind(clip.created_at)
             .bind(clip.last_accessed)
             .execute(&mut *tx)
@@ -1368,6 +1474,10 @@ pub async fn import_backup(
     // 5. Restore Settings
     let manager = app.state::<Arc<SettingsManager>>();
     manager.save(data.settings).map_err(|e| e.to_string())?;
+
+    // 6. Notify main window to refresh
+    let _ = app.emit("clipboard-change", ());
+    let _ = app.emit("settings-changed", manager.get());
 
     Ok(())
 }
