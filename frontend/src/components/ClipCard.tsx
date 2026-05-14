@@ -214,7 +214,7 @@ export const ClipCard = memo(
                   animation: isLatest ? 'marquee 3s linear infinite' : 'none'
                 }}
               >
-                {title} {title}
+                {title}<span className="mx-3 opacity-30">◆</span>{title}<span className="mx-3 opacity-30">◆</span>
               </span>
             </div>
             <div className="relative flex items-center h-full min-w-[40px] justify-end">
