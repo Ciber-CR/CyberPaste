@@ -218,22 +218,25 @@ export const ClipCard = memo(
               </span>
             </div>
             <div className="relative flex items-center h-full min-w-[40px] justify-end">
-              {isLatest && (
-                <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase select-none absolute right-8">Latest</span>
-              )}
-              {/* Pilot Light LED - Slides left on hover */}
-              <motion.div 
-                className="h-1.5 w-1.5 rounded-full shadow-lg pointer-events-none absolute right-2"
-                animate={{ 
+              {/* LATEST badge + LED - slide together on hover */}
+              <motion.div
+                className="absolute right-2 flex items-center gap-1"
+                animate={{
                   x: hovered ? -24 : 0,
-                  opacity: 1
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                style={{ 
-                  backgroundColor: `hsl(${appHue} 85% 75%)`,
-                  boxShadow: `0 0 10px 1px hsl(${appHue} 85% 75% / 0.5)`
-                }}
-              />
+              >
+                {isLatest && (
+                  <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase select-none">Latest</span>
+                )}
+                <div
+                  className="h-1.5 w-1.5 rounded-full shadow-lg pointer-events-none"
+                  style={{
+                    backgroundColor: `hsl(${appHue} 85% 75%)`,
+                    boxShadow: `0 0 10px 1px hsl(${appHue} 85% 75% / 0.5)`
+                  }}
+                />
+              </motion.div>
               
               {/* Copy Button - Slides in on hover */}
               <motion.button
