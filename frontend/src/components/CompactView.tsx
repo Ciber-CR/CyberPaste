@@ -152,7 +152,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
 
   return (
     <div className={cn(
-      "flex flex-col h-full w-full font-sans select-none overflow-hidden",
+      "flex flex-col h-full w-full font-['Segoe_UI',system-ui,sans-serif] select-none overflow-hidden",
       theme === 'dark' ? "text-white/90" : "text-slate-800"
     )}>
       {/* Header */}
@@ -536,7 +536,7 @@ const ClipRow: React.FC<{
         <div className="flex-shrink-0 flex items-center gap-3 pr-2">
           <span className="text-[10px] opacity-30 flex items-center gap-1 whitespace-nowrap">
             {index === 0 && (
-              <span className="text-[8px] font-bold tracking-widest text-cyan-400/60 uppercase">Latest</span>
+              <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase">Latest</span>
             )}
             <Clock size={10} className={selectedFolder === null ? "text-indigo-400" : "text-current"} />
             {formatDistanceToNow(new Date(clip.created_at), { addSuffix: false })}

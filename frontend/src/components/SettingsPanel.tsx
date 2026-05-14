@@ -644,6 +644,7 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                       <div className="space-y-3">
                         <label className="block">
                           <span className="text-base font-medium">{t('settings.scrollDirection')}</span>
+                          <p className="text-xs text-muted-foreground">{t('settings.scrollDirectionDesc')}</p>
                         </label>
                         <Select
                           value={settings.scroll_direction || 'horizontal'}

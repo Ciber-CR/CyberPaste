@@ -30,14 +30,8 @@ All notable changes to CyberPaste will be documented in this file.
 
 ## v1.3.7
 
-### Added
-- German, French, and Japanese language support
-
 ### Improved
 - Winget release pipeline: hash verification step added before publishing to winget-pkgs to prevent stale-hash mismatches; release tag now explicitly pinned
-
-### 新增
-- 新增德语、法语、日语语言支持
 
 ### 优化
 - Winget 发布流程：在发布至 winget-pkgs 前增加哈希值校验步骤，防止哈希不匹配问题；发布时明确指定 release tag

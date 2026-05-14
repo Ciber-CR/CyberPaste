@@ -199,15 +199,22 @@ pub fn run_app() {
                                          }
                                      }
 
-                                     if moved_screens {
-                                         position_window_at_bottom(&win_clone);
-                                         let _ = win_clone.show();
-                                         let _ = win_clone.set_focus();
-                                     } else {
-                                         if win_clone.is_visible().unwrap_or(false) {
-                                             crate::animate_window_hide(&win_clone, None);
-                                         }
-                                     }
+                                      if moved_screens {
+                                          // Only reposition to new monitor if window is pinned
+                                          let manager = win_clone.state::<Arc<SettingsManager>>();
+                                          let is_pinned = manager.get().pinned;
+                                          if is_pinned {
+                                              position_window_at_bottom(&win_clone);
+                                              let _ = win_clone.show();
+                                              let _ = win_clone.set_focus();
+                                          } else {
+                                              crate::animate_window_hide(&win_clone, None);
+                                          }
+                                      } else {
+                                          if win_clone.is_visible().unwrap_or(false) {
+                                              crate::animate_window_hide(&win_clone, None);
+                                          }
+                                      }
                                  });
                             }
                         }
