@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ClipboardItem as AppClip, FolderItem } from '../types';
 import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -102,6 +102,17 @@ export const CompactView: React.FC<CompactViewProps> = ({
   };
 
   const folderScrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to selected clip
+  useEffect(() => {
+    if (selectedClipId && listRef.current) {
+      const el = listRef.current.querySelector(`[data-clip-id="${selectedClipId}"]`);
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [selectedClipId]);
 
   const handleFolderWheel = (e: React.WheelEvent) => {
     if (folderScrollRef.current) {
@@ -236,7 +247,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 space-y-1">
+      <div ref={listRef} className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 space-y-1">
         {clips.length === 0 && !isLoading ? (
           <div className="flex flex-col items-center justify-center h-full opacity-30 italic text-sm">
             <p>{t('clipList.empty')}</p>
