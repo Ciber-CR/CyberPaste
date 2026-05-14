@@ -342,6 +342,9 @@ export const CompactView: React.FC<CompactViewProps> = ({
 
               <div className="flex-shrink-0 flex items-center gap-3 pr-2">
                 <span className="text-[10px] opacity-30 flex items-center gap-1 whitespace-nowrap">
+                  {index === 0 && (
+                    <span className="text-[8px] font-bold tracking-widest text-cyan-400/60 uppercase">Latest</span>
+                  )}
             <Clock size={10} className={selectedFolder === null ? "text-indigo-400" : "text-current"} />
                   {formatDistanceToNow(new Date(clip.created_at), { addSuffix: false })}
                 </span>

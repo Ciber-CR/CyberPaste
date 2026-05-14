@@ -205,12 +205,15 @@ export const ClipCard = memo(
             {clipIndex !== undefined && (
               <span className="text-[9px] font-mono opacity-20 select-none">#{clipIndex}</span>
             )}
-            <span 
+            <span
               className="flex-1 truncate text-[10px] font-bold uppercase tracking-[0.1em]"
               style={{ color: `hsl(${appHue} 85% 75%)` }}
             >
               {title}
             </span>
+            {clipIndex === 1 && (
+              <span className="text-[8px] font-bold tracking-widest text-cyan-400/50 uppercase">Latest</span>
+            )}
             <div className="relative flex items-center h-full min-w-[40px] justify-end">
               {/* Pilot Light LED - Slides left on hover */}
               <motion.div 

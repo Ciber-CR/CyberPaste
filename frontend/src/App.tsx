@@ -544,6 +544,7 @@ function App() {
   // Auto-select first clip when window gains focus (reopened via hotkey)
   useEffect(() => {
     const unlisten = listen('tauri://focus', () => {
+      setClipListResetToken(prev => prev + 1);
       if (clipsRef.current.length > 0) {
         setSelectedClipId(clipsRef.current[0].id);
       }
