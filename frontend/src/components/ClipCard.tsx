@@ -227,7 +227,7 @@ export const ClipCard = memo(
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               >
                 {isLatest && (
-                  <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase select-none">Latest</span>
+                  <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase select-none bg-black/80 px-1 rounded">Latest</span>
                 )}
                 <div
                   className="h-1.5 w-1.5 rounded-full shadow-lg pointer-events-none"
