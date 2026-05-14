@@ -230,16 +230,16 @@ export const CompactView: React.FC<CompactViewProps> = ({
             className="flex-shrink-0 border-r border-white/10 bg-black/10 overflow-hidden transition-all duration-200"
             style={{ width: sidebarWidth }}
           >
-            <div className="w-[140px] h-full flex flex-col overflow-y-auto no-scrollbar py-2">
+            <div className="w-[140px] h-full flex flex-col gap-1 overflow-y-auto no-scrollbar py-2">
               <button
                 onClick={() => onSelectFolder(null)}
                 className={cn(
-                  "mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center gap-1.5 border border-b",
+                  "mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center gap-1.5 border",
                   selectedFolder === null && !dragTargetFolderId
                     ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.3)]"
                     : dragTargetFolderId === null && isDragging
                     ? "bg-cyan-500/30 border-cyan-400 text-white"
-                    : "bg-white/5 hover:bg-white/10 border-transparent border-b-white/10 opacity-60 hover:opacity-100"
+                    : "bg-white/5 hover:bg-white/10 border-transparent opacity-60 hover:opacity-100"
                 )}
                 onMouseEnter={() => isDragging && onDragHover(null)}
                 onMouseLeave={onDragLeave}
@@ -257,7 +257,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
                     onClick={() => onSelectFolder(folder.id)}
                     onContextMenu={(e) => onFolderContextMenu?.(e, folder.id)}
                     className={cn(
-                      "mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center gap-1.5 border border-b border-b-white/10",
+                      "mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center gap-1.5 border",
                       isSelected && !dragTargetFolderId
                         ? "bg-primary/10 text-white/80 border-primary/60 shadow-[0_0_12px_rgba(99,102,241,0.3)] ring-1 ring-primary/40"
                         : dragTargetFolderId === folder.id && isDragging
