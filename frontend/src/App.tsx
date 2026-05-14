@@ -534,11 +534,33 @@ function App() {
     refreshTotalCount();
   }, [refreshTotalCount]);
 
+  // Auto-select first clip when clip list resets (folder change, clipboard change, window reopen)
+  useEffect(() => {
+    if (clipsRef.current.length > 0) {
+      setSelectedClipId(clipsRef.current[0].id);
+    }
+  }, [clipListResetToken]);
+
+  // Auto-select first clip when window gains focus (reopened via hotkey)
+  useEffect(() => {
+    const unlisten = listen('tauri://focus', () => {
+      if (clipsRef.current.length > 0) {
+        setSelectedClipId(clipsRef.current[0].id);
+      }
+    });
+    return () => {
+      unlisten.then((u) => {
+        if (typeof u === 'function') u();
+      });
+    };
+  }, []);
+
   useEffect(() => {
     const unlistenClipboard = listen('clipboard-change', () => {
       console.log('[App] Clipboard change detected, refreshing...');
       setClipListResetToken(prev => prev + 1);
       loadFolders();
+      refreshCurrentFolder();
       refreshTotalCount();
     });
 
