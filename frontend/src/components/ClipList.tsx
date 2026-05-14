@@ -137,6 +137,7 @@ export const ClipList: React.FC<ClipListProps> = ({
         <ClipCard
           clip={clip}
           clipIndex={clips.length - index}
+          isLatest={index === 0}
           isSelected={selectedClipId === clip.id}
           onPaste={() => onPaste(clip.id)}
           onCopy={() => onCopy(clip.id)}

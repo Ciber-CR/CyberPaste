@@ -17,11 +17,12 @@ interface ClipCardProps {
   reorderDropIndicator?: 'before' | 'after' | null;
   reorderEnabled?: boolean;
   clipIndex?: number;
+  isLatest?: boolean;
 }
 
 export const ClipCard = memo(
   forwardRef<HTMLDivElement, ClipCardProps>(function ClipCard(
-    { clip, isSelected, onPaste, onCopy, onDragStart, onContextMenu, reorderDropIndicator, reorderEnabled, clipIndex }: ClipCardProps,
+    { clip, isSelected, onPaste, onCopy, onDragStart, onContextMenu, reorderDropIndicator, reorderEnabled, clipIndex, isLatest }: ClipCardProps,
     ref
   ) {
     const { t } = useTranslation();
@@ -211,7 +212,7 @@ export const ClipCard = memo(
             >
               {title}
             </span>
-            {clipIndex === 1 && (
+            {isLatest && (
               <span className="text-[8px] font-bold tracking-widest text-cyan-400/50 uppercase">Latest</span>
             )}
             <div className="relative flex items-center h-full min-w-[40px] justify-end">
