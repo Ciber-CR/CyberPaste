@@ -47,6 +47,7 @@ interface CompactViewProps {
   compactSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
   onAddFolder?: () => void;
+  onLoadMore?: () => void;
 }
 
 export const CompactView: React.FC<CompactViewProps> = ({
@@ -80,6 +81,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   compactSidebarCollapsed = false,
   onToggleSidebar,
   onAddFolder,
+  onLoadMore,
 }) => {
   const { t } = useTranslation();
   
@@ -121,6 +123,15 @@ export const CompactView: React.FC<CompactViewProps> = ({
       }
     }
   }, [selectedClipId]);
+
+  // Load more clips when scrolling near the bottom
+  const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!onLoadMore) return;
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+      onLoadMore();
+    }
+  };
 
   const handleFolderWheel = (e: React.WheelEvent) => {
     if (folderScrollRef.current) {
@@ -305,7 +316,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
             </div>
 
             {/* List */}
-            <div ref={listRef} className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 space-y-1">
+            <div ref={listRef} className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 space-y-1" onScroll={handleListScroll}>
               {clips.length === 0 && !isLoading ? (
                 <div className="flex flex-col items-center justify-center h-full opacity-30 italic text-sm">
                   <p>{t('clipList.empty')}</p>
@@ -406,7 +417,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
             </div>
           </div>
 
-          <div ref={listRef} className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 space-y-1">
+          <div ref={listRef} className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 space-y-1" onScroll={handleListScroll}>
             {clips.length === 0 && !isLoading ? (
               <div className="flex flex-col items-center justify-center h-full opacity-30 italic text-sm">
                 <p>{t('clipList.empty')}</p>

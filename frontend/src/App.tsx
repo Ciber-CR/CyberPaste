@@ -954,6 +954,7 @@ function App() {
             onAddFolder={() => {
               setShowAddFolderModal(true);
             }}
+            onLoadMore={loadMore}
           />
         ) : (
           <div

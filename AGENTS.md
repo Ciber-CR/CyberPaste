@@ -162,4 +162,4 @@ Always be truthful and face problems directly. Never fabricate, obscure, or work
 - Never claim something is working unless it has been confirmed to work.
 
 ### Changelog
-CHANGELOG.md includes both English and Chinese entries for every version. Always add both when writing a new version section.
+CHANGELOG.md includes English entries for every version.
