@@ -217,10 +217,10 @@ export const ClipCard = memo(
                 {title}
               </span>
             </div>
-            {isLatest && (
-              <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase select-none">Latest</span>
-            )}
             <div className="relative flex items-center h-full min-w-[40px] justify-end">
+              {isLatest && (
+                <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase select-none absolute right-8">Latest</span>
+              )}
               {/* Pilot Light LED - Slides left on hover */}
               <motion.div 
                 className="h-1.5 w-1.5 rounded-full shadow-lg pointer-events-none absolute right-2"

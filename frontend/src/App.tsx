@@ -951,6 +951,9 @@ function App() {
               await invoke('save_settings', { settings: newSettings });
               setSettings(newSettings);
             }}
+            onAddFolder={() => {
+              setShowAddFolderModal(true);
+            }}
           />
         ) : (
           <div

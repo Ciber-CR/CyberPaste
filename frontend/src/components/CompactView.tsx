@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ClipboardItem as AppClip, FolderItem } from '../types';
-import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
@@ -46,6 +46,7 @@ interface CompactViewProps {
   compactFolderLayout?: 'horizontal' | 'vertical';
   compactSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  onAddFolder?: () => void;
 }
 
 export const CompactView: React.FC<CompactViewProps> = ({
@@ -78,6 +79,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   compactFolderLayout = 'horizontal',
   compactSidebarCollapsed = false,
   onToggleSidebar,
+  onAddFolder,
 }) => {
   const { t } = useTranslation();
   
@@ -273,6 +275,16 @@ export const CompactView: React.FC<CompactViewProps> = ({
                   </button>
                 );
               })}
+              {onAddFolder && (
+                <button
+                  onClick={onAddFolder}
+                  className="mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center justify-center gap-1.5 border border-dashed border-white/20 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80"
+                  title="Add Folder"
+                >
+                  <Plus size={10} />
+                  <span className="truncate flex-1 text-left">New Folder</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -381,6 +393,16 @@ export const CompactView: React.FC<CompactViewProps> = ({
                   </button>
                 );
               })}
+              {onAddFolder && (
+                <button
+                  onClick={onAddFolder}
+                  className="px-2 py-1 rounded-full text-[10px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border border-dashed border-white/20 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80"
+                  title="Add Folder"
+                >
+                  <Plus size={10} />
+                  New
+                </button>
+              )}
             </div>
           </div>
 
