@@ -14,16 +14,15 @@ CyberPaste/
 │   ├── database.rs          # SQLite via sqlx (clips, folders, settings tables)
 │   ├── models.rs            # Shared types + global tokio runtime (get_runtime())
 │   ├── settings_manager.rs  # In-memory settings cache with DB persistence
-│   ├── constants.rs         # WINDOW_HEIGHT (330.0), WINDOW_MARGIN (0.0)
+│   ├── constants.rs         # WINDOW_HEIGHT (500.0), WINDOW_MARGIN (8.0), COMPACT_WIDTH/HEIGHT, FULL_HEIGHT
 │   ├── ai.rs                # AI clip processing
 │   └── main.rs              # Entry point
 ├── frontend/src/
 │   ├── App.tsx              # Root component, keyboard shortcuts, IPC calls
-│   ├── components/          # SearchBar, ClipItem, SettingsPanel, FolderPanel, ...
+│   ├── components/          # ClipCard, ClipList, CompactView, ControlBar, SettingsPanel, ...
 │   ├── hooks/               # useClips, useSearch, useKeyboard, ...
 │   ├── types/index.ts       # Shared TS types
 │   └── constants.ts         # WINDOW_HEIGHT, LAYOUT constants
-└── .github/workflows/release.yml  # CI: builds x64 + arm64 NSIS installers
 ```
 
 ## Architecture & Key Systems
@@ -69,26 +68,26 @@ Re-applied on system theme change if user setting is `"system"`.
 
 ### CI / Release
 - Builds both `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`
-- winget installer regex: `.*-setup\.exe$` (NSIS only — WiX MSIs have x64 bootstrap stubs that fool komac's arch detection)
-- Triggered by `v*` tags; `workflow_dispatch` creates a draft prerelease
+- NSIS installer (`*-setup.exe`) is the primary distribution format
+- WiX MSI also produced but NSIS preferred for winget (x64 bootstrap stubs in WiX fool arch detection)
 
 ## Build Commands
 
 ```bash
 # Full dev (hot reload)
-pnpm tauri dev
+npm run tauri dev
 
 # Production build
-pnpm tauri build
+npm run tauri build
 
-# Rust only
+# Rust only (in src-tauri/)
 cargo check          # fast error check
 cargo clippy         # lint
 cargo fmt            # format
 cargo test           # tests
 
 # Frontend only (in frontend/)
-pnpm install && pnpm dev
+npm install && npm run dev
 ```
 
 ## Code Style
@@ -132,7 +131,7 @@ pnpm install && pnpm dev
 | Frontend | React 18, TypeScript, Vite |
 | Styling | Tailwind CSS |
 | Icons | Lucide React |
-| Package manager | pnpm |
+| Package manager | npm |
 | Window effects | window_vibrancy crate |
 | Clipboard | tauri-plugin-clipboard-x |
 
