@@ -20,6 +20,7 @@ interface CompactViewProps {
   clips: AppClip[];
   folders: FolderItem[];
   selectedFolder: string | null;
+  selectedClipId: string | null;
   onSelectFolder: (id: string | null) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -48,6 +49,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   clips,
   folders,
   selectedFolder,
+  selectedClipId,
   onSelectFolder,
   searchQuery,
   onSearchChange,
@@ -58,7 +60,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   isLoading,
   theme,
   totalClipCount,
-  isPinned,
+  isPinned = false,
   onTogglePin,
   onFolderContextMenu,
   onContextMenu,
@@ -69,7 +71,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   reorderTargetClipId,
   reorderTargetPosition,
   reorderEnabled,
-  dragTargetFolderId
+  dragTargetFolderId,
 }) => {
   const { t } = useTranslation();
   
@@ -257,7 +259,10 @@ export const CompactView: React.FC<CompactViewProps> = ({
                 }}
                 draggable="false"
                 className={clsx(
-                   "group relative flex items-center gap-3 py-1.5 px-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer overflow-hidden h-10 flex-shrink-0",
+                  "group relative flex items-center gap-3 py-1.5 px-2 rounded-lg border transition-all cursor-pointer overflow-hidden h-10 flex-shrink-0",
+                  selectedClipId === clip.id
+                    ? "bg-indigo-500/15 border-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.2)]"
+                    : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-cyan-500/30",
                   reorderEnabled && "cursor-grab active:cursor-grabbing"
                 )}
               >

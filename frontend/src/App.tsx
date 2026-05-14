@@ -289,6 +289,10 @@ function App() {
           });
         } else {
           setClips(data);
+          // Always select the first (latest) clip on fresh load
+          if (data.length > 0) {
+            setSelectedClipId(data[0].id);
+          }
         }
 
         // If we got fewer than limit, no more clips
@@ -606,11 +610,10 @@ function App() {
   };
 
   // Keyboard navigation handlers
-  const handleNavigateLeft = useCallback(() => {
+  const handleNavigatePrev = useCallback(() => {
     if (clips.length === 0) return;
 
     if (!selectedClipId) {
-      // No selection, select the first clip
       setSelectedClipId(clips[0].id);
       return;
     }
@@ -618,14 +621,16 @@ function App() {
     const currentIndex = clips.findIndex((c) => c.id === selectedClipId);
     if (currentIndex > 0) {
       setSelectedClipId(clips[currentIndex - 1].id);
+    } else {
+      // Wrap to last
+      setSelectedClipId(clips[clips.length - 1].id);
     }
   }, [clips, selectedClipId]);
 
-  const handleNavigateRight = useCallback(() => {
+  const handleNavigateNext = useCallback(() => {
     if (clips.length === 0) return;
 
     if (!selectedClipId) {
-      // No selection, select the first clip
       setSelectedClipId(clips[0].id);
       return;
     }
@@ -633,14 +638,21 @@ function App() {
     const currentIndex = clips.findIndex((c) => c.id === selectedClipId);
     if (currentIndex < clips.length - 1) {
       setSelectedClipId(clips[currentIndex + 1].id);
+    } else {
+      // Wrap to first
+      setSelectedClipId(clips[0].id);
     }
   }, [clips, selectedClipId]);
 
   const handlePasteSelected = useCallback(() => {
     if (selectedClipId) {
       handlePaste(selectedClipId);
+      // Close window after paste unless pinned
+      if (!settings?.pinned) {
+        setTimeout(() => appWindow.hide(), 100);
+      }
     }
-  }, [selectedClipId, handlePaste]);
+  }, [selectedClipId, handlePaste, settings?.pinned]);
 
 
   const handleCreateFolder = async (name: string, icon?: string, color?: string) => {
@@ -850,8 +862,8 @@ function App() {
     onClose: () => appWindow.hide(),
     onSearch: () => setShowSearch(true),
     onDelete: () => handleDelete(selectedClipId),
-    onNavigateLeft: handleNavigateLeft,
-    onNavigateRight: handleNavigateRight,
+    onNavigatePrev: handleNavigatePrev,
+    onNavigateNext: handleNavigateNext,
     onPaste: handlePasteSelected,
     onToggleMode: toggleViewMode,
     toggleModeHotkey: settings?.view_mode_hotkey,
@@ -880,6 +892,7 @@ function App() {
             clips={clips}
             folders={folders}
             selectedFolder={selectedFolder}
+            selectedClipId={selectedClipId}
             onSelectFolder={handleSelectFolder}
             searchQuery={searchQuery}
             onSearchChange={handleSearch}

@@ -5,8 +5,8 @@ interface KeyboardOptions {
   onSearch?: () => void;
   onDelete?: () => void;
   onPin?: () => void;
-  onNavigateLeft?: () => void;
-  onNavigateRight?: () => void;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
   onPaste?: () => void;
   onToggleMode?: () => void;
   toggleModeHotkey?: string; // e.g. "Ctrl+M"
@@ -69,14 +69,16 @@ export function useKeyboard(options: KeyboardOptions) {
         options.onPin();
       }
 
-      if (e.key === 'ArrowLeft' && options.onNavigateLeft) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && options.onNavigatePrev) {
         e.preventDefault();
-        options.onNavigateLeft();
+        e.stopPropagation();
+        options.onNavigatePrev();
       }
 
-      if (e.key === 'ArrowRight' && options.onNavigateRight) {
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && options.onNavigateNext) {
         e.preventDefault();
-        options.onNavigateRight();
+        e.stopPropagation();
+        options.onNavigateNext();
       }
 
       if (e.key === 'Enter' && options.onPaste) {

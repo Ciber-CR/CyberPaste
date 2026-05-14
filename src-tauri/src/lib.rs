@@ -6,7 +6,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{TrayIcon, TrayIconBuilder},
-    Manager,
+    Emitter, Manager,
 };
 #[cfg(not(feature = "app-store"))]
 use tauri_plugin_autostart::MacosLauncher;
@@ -233,8 +233,9 @@ pub fn run_app() {
             let title_i = MenuItem::with_id(app, "title", &title, false, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit CyberPaste", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+            let settings_i = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let separator_i = PredefinedMenuItem::separator(app)?;
-            let menu = Menu::with_items(app, &[&title_i, &show_i, &separator_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&title_i, &show_i, &settings_i, &separator_i, &quit_i])?;
 
             let is_dark = dark_light::detect().map(|m| m == dark_light::Mode::Dark).unwrap_or(false);
             let icon_data: &[u8] = if is_dark {
@@ -257,6 +258,11 @@ pub fn run_app() {
                     } else if event.id.as_ref() == "show" {
                         if let Some(win) = app.get_webview_window("main") {
                             position_window_at_bottom(&win);
+                        }
+                    } else if event.id.as_ref() == "settings" {
+                        if let Some(win) = app.get_webview_window("main") {
+                            position_window_at_bottom(&win);
+                            let _ = win.emit("open-settings", ());
                         }
                     }
                 })
