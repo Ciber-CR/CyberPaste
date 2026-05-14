@@ -238,7 +238,7 @@ function App() {
   }, []);
 
   const loadClips = useCallback(
-    async (folderId: string | null, append: boolean = false, searchQuery: string = '') => {
+    async (folderId: string | null, append: boolean = false, searchQuery: string = '', limit: number = 20) => {
       const perfId = ++loadPerfIdRef.current;
       const loadStart = perfLogEnabled ? performance.now() : 0;
       let invokeStart = 0;
@@ -256,7 +256,7 @@ function App() {
           data = await invoke<AppClipboardItem[]>('search_clips', {
             query: searchQuery,
             filterId: folderId,
-            limit: 20,
+            limit,
             offset: currentOffset,
           });
           if (perfLogEnabled) invokeEnd = performance.now();
@@ -264,7 +264,7 @@ function App() {
           if (perfLogEnabled) invokeStart = performance.now();
           data = await invoke<AppClipboardItem[]>('get_clips', {
             filterId: folderId,
-            limit: 20,
+            limit,
             offset: currentOffset,
             previewOnly: true,
           });
@@ -340,7 +340,8 @@ function App() {
   }, []);
 
   const refreshCurrentFolder = useCallback(() => {
-    loadClips(selectedFolderRef.current, false, searchQuery);
+    const clipLimit = settingsRef.current?.view_mode === 'compact' ? 9999 : 20;
+    loadClips(selectedFolderRef.current, false, searchQuery, clipLimit);
   }, [loadClips, searchQuery]);
 
   const handleSearch = useCallback((query: string) => {
@@ -356,13 +357,15 @@ function App() {
 
   useEffect(() => {
     loadFolders();
+    // Load all clips for compact view, paginate for full view
+    const clipLimit = settings?.view_mode === 'compact' ? 9999 : 20;
     if (searchQuery.trim()) {
-      loadClips(selectedFolder, false, searchQuery);
+      loadClips(selectedFolder, false, searchQuery, clipLimit);
     } else {
-      loadClips(selectedFolder);
+      loadClips(selectedFolder, false, '', clipLimit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, searchQuery, clipListResetToken]);
+  }, [selectedFolder, searchQuery, clipListResetToken, settings?.view_mode]);
 
   // Handle global mouse events for simulated drag
   useEffect(() => {
@@ -1009,7 +1012,7 @@ function App() {
                 selectedClipId={selectedClipId}
                 onPaste={handlePaste}
                 onCopy={handleCopy}
-                onLoadMore={loadMore}
+            onLoadMore={loadMore}
                 onDragStart={startDrag}
                 onCardContextMenu={(e, clipId) => handleContextMenu(e, 'card', clipId)}
                 scrollDirection={settings?.scroll_direction || 'horizontal'}

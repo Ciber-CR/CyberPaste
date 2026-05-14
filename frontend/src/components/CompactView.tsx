@@ -506,16 +506,6 @@ const ClipRow: React.FC<{
         <div className="flex-shrink-0 w-8 flex items-center justify-center">
           <span className="text-[10px] opacity-30 font-mono">#{clips.length - index}</span>
         </div>
-        <div className="flex-shrink-0 w-8 flex items-center justify-center border-l border-white/5">
-          {clip.source_icon && (
-            <img
-              src={`data:image/png;base64,${clip.source_icon}`}
-              alt=""
-              draggable="false"
-              className="h-3.5 w-3.5 object-contain opacity-50 group-hover:opacity-100 transition-opacity"
-            />
-          )}
-        </div>
         <div className="flex-1 min-w-0 flex items-center gap-3">
           {clip.clip_type === 'image' ? (
             <>
@@ -570,6 +560,14 @@ const ClipRow: React.FC<{
           <span className="text-[10px] opacity-30 flex items-center gap-1 whitespace-nowrap">
             {index === 0 && (
               <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase">Latest</span>
+            )}
+            {clip.source_icon && (
+              <img
+                src={`data:image/png;base64,${clip.source_icon}`}
+                alt=""
+                draggable="false"
+                className="h-3.5 w-3.5 object-contain opacity-50 group-hover:opacity-100 transition-opacity"
+              />
             )}
             <Clock size={10} className={selectedFolder === null ? "text-indigo-400" : "text-current"} />
             {formatDistanceToNow(new Date(clip.created_at), { addSuffix: false })}
