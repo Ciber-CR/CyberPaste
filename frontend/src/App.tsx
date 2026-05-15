@@ -438,6 +438,8 @@ function App() {
       // Always clear pending drag on mouse up
       if (dragStateRef.current.pendingDrag) {
         dragStateRef.current.pendingDrag = null;
+        // Click without drag — remove is-dragging class added by startDrag
+        document.body.classList.remove('is-dragging');
       }
 
       if (dragStateRef.current.isDragging) {
@@ -525,13 +527,19 @@ function App() {
   const [totalClipCount, setTotalClipCount] = useState(0);
   const [imageCount, setImageCount] = useState(0);
   const [textCount, setTextCount] = useState(0);
+  const [fileCount, setFileCount] = useState(0);
+  const [htmlCount, setHtmlCount] = useState(0);
+  const [rtfCount, setRtfCount] = useState(0);
 
   const refreshTotalCount = useCallback(async () => {
     try {
-      const stats = await invoke<{ total: number; images: number; text: number }>('get_clip_stats');
+      const stats = await invoke<{ total: number; images: number; text: number; files: number; html: number; rtf: number }>('get_clip_stats');
       setTotalClipCount(stats.total);
       setImageCount(stats.images);
       setTextCount(stats.text);
+      setFileCount(stats.files || 0);
+      setHtmlCount(stats.html || 0);
+      setRtfCount(stats.rtf || 0);
     } catch (e) {
       console.error('Failed to get clip stats', e);
     }
@@ -673,6 +681,30 @@ function App() {
       setSelectedClipId(clips[0].id);
     }
   }, [clips, selectedClipId]);
+
+  // Folder navigation handlers (Left/Right arrows in compact mode)
+  const handleFolderPrev = useCallback(() => {
+    // Build ordered list: [null (clipboard), ...folder ids]
+    const folderIds: (string | null)[] = [null, ...folders.map(f => f.id)];
+    const currentIdx = folderIds.indexOf(selectedFolder);
+    if (currentIdx <= 0) {
+      // Wrap to last folder
+      handleSelectFolder(folderIds[folderIds.length - 1]);
+    } else {
+      handleSelectFolder(folderIds[currentIdx - 1]);
+    }
+  }, [folders, selectedFolder, handleSelectFolder]);
+
+  const handleFolderNext = useCallback(() => {
+    const folderIds: (string | null)[] = [null, ...folders.map(f => f.id)];
+    const currentIdx = folderIds.indexOf(selectedFolder);
+    if (currentIdx >= folderIds.length - 1) {
+      // Wrap to clipboard
+      handleSelectFolder(folderIds[0]);
+    } else {
+      handleSelectFolder(folderIds[currentIdx + 1]);
+    }
+  }, [folders, selectedFolder, handleSelectFolder]);
 
   const handlePasteSelected = useCallback(() => {
     if (selectedClipId) {
@@ -894,6 +926,8 @@ function App() {
     onDelete: () => handleDelete(selectedClipId),
     onNavigatePrev: handleNavigatePrev,
     onNavigateNext: handleNavigateNext,
+    onFolderPrev: settings?.view_mode === 'compact' ? handleFolderPrev : undefined,
+    onFolderNext: settings?.view_mode === 'compact' ? handleFolderNext : undefined,
     onPaste: handlePasteSelected,
     onToggleMode: toggleViewMode,
     toggleModeHotkey: settings?.view_mode_hotkey,
@@ -959,6 +993,13 @@ function App() {
               await invoke('save_settings', { settings: newSettings });
               setSettings(newSettings);
             }}
+            onToggleLayout={async () => {
+              if (!settings) return;
+              const newLayout: 'horizontal' | 'vertical' = settings.compact_folder_layout === 'vertical' ? 'horizontal' : 'vertical';
+              const newSettings = { ...settings, compact_folder_layout: newLayout };
+              await invoke('save_settings', { settings: newSettings });
+              setSettings(newSettings);
+            }}
             onAddFolder={() => {
               setShowAddFolderModal(true);
             }}
@@ -998,6 +1039,9 @@ function App() {
               totalClipCount={totalClipCount}
               imageCount={imageCount}
               textCount={textCount}
+              fileCount={fileCount}
+              htmlCount={htmlCount}
+              rtfCount={rtfCount}
               onFolderContextMenu={(e, folderId) => {
                 if (folderId) handleContextMenu(e, 'folder', folderId);
               }}
@@ -1017,6 +1061,7 @@ function App() {
                 hasMore={hasMore}
                 resetToken={clipListResetToken}
                 selectedClipId={selectedClipId}
+                selectedFolder={selectedFolder}
                 onPaste={handlePaste}
                 onCopy={handleCopy}
             onLoadMore={loadMore}

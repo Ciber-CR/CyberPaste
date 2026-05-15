@@ -33,6 +33,16 @@ export const ClipCard = memo(
     const mouseX = useMotionValue(0);
     const mouseY = useMotionValue(0);
 
+    const filePaths = useMemo(() => {
+      if (clip.clip_type !== 'file' || !clip.content) return [] as string[];
+      try {
+        const parsed = JSON.parse(clip.content);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }, [clip.clip_type, clip.content]);
+
     const imageSrc = useMemo(() => {
       if (clip.clip_type !== 'image' || !clip.content) return null;
       const value = clip.content;
@@ -85,6 +95,24 @@ export const ClipCard = memo(
             )}
           </div>
         );
+      } else if (clip.clip_type === 'file') {
+        return (
+          <div className="flex h-full w-full select-none flex-col items-center justify-center gap-1">
+            <span className="text-xs font-bold text-yellow-400/70 uppercase tracking-wider">Files</span>
+            <span className="max-w-full truncate px-3 text-center text-xs text-muted-foreground/60">
+              {clip.preview || filePaths[0] || ''}
+            </span>
+            {filePaths.length > 1 && (
+              <span className="text-[10px] text-muted-foreground/40">+{filePaths.length - 1} more</span>
+            )}
+          </div>
+        );
+      } else if (clip.clip_type === 'html' || clip.clip_type === 'rtf') {
+        return (
+          <pre className="whitespace-pre-wrap break-all font-mono text-[13px] leading-tight text-foreground/80">
+            <span>{clip.preview.substring(0, PREVIEW_CHAR_LIMIT) || clip.content.substring(0, PREVIEW_CHAR_LIMIT)}</span>
+          </pre>
+        );
       } else {
         return (
           <pre className="whitespace-pre-wrap break-all font-mono text-[13px] leading-tight text-foreground">
@@ -92,7 +120,7 @@ export const ClipCard = memo(
           </pre>
         );
       }
-    }, [clip.clip_type, clip.content, imageSrc]);
+    }, [clip.clip_type, clip.content, clip.preview, imageSrc, filePaths]);
 
     // Generate stable color index based on source app name
     const getAppColorIndex = (name: string) => {
@@ -147,7 +175,6 @@ export const ClipCard = memo(
           data-el="clip-card-inner"
           onMouseDown={(e) => {
             if (e.button === 0) {
-              e.preventDefault();
               onDragStart(clip.id, e.clientX, e.clientY);
             }
           }}
@@ -292,7 +319,9 @@ export const ClipCard = memo(
                     </div>
                   </div>
                 )
-                : t('clipList.textLength', { count: clip.content.length })}
+                : clip.clip_type === 'file'
+                  ? `${filePaths.length} file${filePaths.length !== 1 ? 's' : ''}`
+                  : t('clipList.textLength', { count: clip.content.length })}
             </span>
           </div>
         </div>

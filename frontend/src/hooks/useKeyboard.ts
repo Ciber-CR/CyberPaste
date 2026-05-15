@@ -7,6 +7,8 @@ interface KeyboardOptions {
   onPin?: () => void;
   onNavigatePrev?: () => void;
   onNavigateNext?: () => void;
+  onFolderPrev?: () => void;
+  onFolderNext?: () => void;
   onPaste?: () => void;
   onToggleMode?: () => void;
   toggleModeHotkey?: string; // e.g. "Ctrl+M"
@@ -69,16 +71,31 @@ export function useKeyboard(options: KeyboardOptions) {
         options.onPin();
       }
 
-      if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && options.onNavigatePrev) {
+      if (e.key === 'ArrowUp' && options.onNavigatePrev) {
         e.preventDefault();
         e.stopPropagation();
         options.onNavigatePrev();
       }
 
-      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && options.onNavigateNext) {
+      if (e.key === 'ArrowDown' && options.onNavigateNext) {
         e.preventDefault();
         e.stopPropagation();
         options.onNavigateNext();
+      }
+
+      // Folder navigation — skip when typing in an input/textarea
+      const isTyping = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+
+      if (e.key === 'ArrowLeft' && options.onFolderPrev && !isTyping) {
+        e.preventDefault();
+        e.stopPropagation();
+        options.onFolderPrev();
+      }
+
+      if (e.key === 'ArrowRight' && options.onFolderNext && !isTyping) {
+        e.preventDefault();
+        e.stopPropagation();
+        options.onFolderNext();
       }
 
       if (e.key === 'Enter' && options.onPaste) {

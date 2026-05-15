@@ -16,7 +16,10 @@
   },
   "compact": {
     "enterToPaste": "ENTER PARA PEGAR",
-    "escToHide": "ESC PARA OCULTAR"
+    "arrowsFolders": "←→ CARPETAS",
+    "escToHide": "ESC PARA OCULTAR",
+    "switchHorizontal": "Cambiar a Pestañas Horizontales",
+    "switchVertical": "Cambiar a Barra Lateral"
   },
   "clipList": {
     "empty": "No hay clips aún",

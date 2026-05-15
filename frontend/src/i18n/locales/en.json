@@ -16,7 +16,10 @@
   },
   "compact": {
     "enterToPaste": "ENTER TO PASTE",
-    "escToHide": "ESC TO HIDE"
+    "arrowsFolders": "←→ FOLDERS",
+    "escToHide": "ESC TO HIDE",
+    "switchHorizontal": "Switch to Horizontal Tabs",
+    "switchVertical": "Switch to Vertical Sidebar"
   },
   "clipList": {
     "empty": "No clips yet",

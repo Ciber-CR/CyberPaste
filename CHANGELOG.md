@@ -2,6 +2,24 @@
 
 All notable changes to CyberPaste will be documented in this file.
 
+## v1.0.2
+
+### Added
+- **Folder Navigation**: Added left/right arrow key navigation to switch between folders in Compact view.
+- **Layout Toggle**: Added a dedicated header button to quickly switch between horizontal and vertical folder layouts in Compact mode.
+- **Premium UI**: Redesigned toolbar buttons with a streamlined "ghost" style and a premium glowing gradient pill for the main view toggle.
+
+### Fixed
+- **Input Focus**: Prevented folder navigation shortcuts from firing while typing in the search bar.
+
+### 新增
+- **文件夹导航**: 精简视图下新增左右方向键切换文件夹功能。
+- **布局切换**: 顶栏新增专用按钮，可在水平和垂直布局间快速切换。
+- **高级 UI**: 重新设计了工具栏按钮，采用简约的“幽灵”风格，并为视图切换主按钮增加了高级霓虹渐变发光效果。
+
+### 修复
+- **输入焦点**: 修复了在搜索栏输入时文件夹导航快捷键被误触发的问题。
+
 ## v1.0.1
 
 ### Fixed

@@ -4,7 +4,7 @@ use crate::database::Database;
 #[cfg(target_os = "windows")]
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clipboard_rs::common::RustImage;
-use clipboard_rs::{Clipboard, ClipboardContext};
+use clipboard_rs::{Clipboard, ClipboardContext, ContentFormat};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 #[cfg(target_os = "windows")]
@@ -218,20 +218,102 @@ async fn process_clipboard_change(
     }
 
     if !found_content {
-        // Try Text
-        let text_read_started = std::time::Instant::now();
-        if let Ok(text) = read_text().await {
-            text_read_ms = text_read_started.elapsed().as_millis();
-            let text = text.trim();
-            if !text.is_empty() {
-                clip_content = text.as_bytes().to_vec();
-                clip_hash = calculate_hash(&clip_content);
-                clip_type = "text";
-                clip_preview = text.chars().take(200).collect::<String>();
-                found_content = true;
-                log::debug!("CLIPBOARD: Found text: {}", clip_preview);
+        let rich_read_started = std::time::Instant::now();
+
+        // Use a single ClipboardContext for all format checks (files, HTML, RTF, text)
+        if let Ok(ctx) = ClipboardContext::new() {
+            // 1. Try Files (CF_HDROP) — must be before text: Explorer sets both
+            if ctx.has(ContentFormat::Files) {
+                if let Ok(files) = ctx.get_files() {
+                    let files: Vec<String> = files.into_iter().collect();
+                    if !files.is_empty() {
+                        let content = serde_json::to_vec(&files).unwrap_or_default();
+                        clip_hash = calculate_hash(&content);
+                        clip_type = "file";
+                        clip_content = content;
+                        let first = std::path::Path::new(&files[0]);
+                        let name = first.file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        clip_preview = if files.len() > 1 {
+                            format!("{} (+{} más)", name, files.len() - 1)
+                        } else {
+                            name
+                        };
+                        metadata = serde_json::json!({
+                            "file_count": files.len(),
+                            "paths": files
+                        }).to_string();
+                        found_content = true;
+                        log::debug!("CLIPBOARD: Found files: {}", clip_preview);
+                    }
+                }
+            }
+
+            // 2. Try HTML (richer than RTF/text, offered by browsers/wysiwyg editors)
+            if !found_content && ctx.has(ContentFormat::Html) {
+                if let Ok(html) = ctx.get_html() {
+                    let trimmed = html.trim();
+                    if !trimmed.is_empty() {
+                        clip_content = trimmed.as_bytes().to_vec();
+                        clip_hash = calculate_hash(&clip_content);
+                        clip_type = "html";
+                        clip_preview = strip_html_tags(trimmed).chars().take(200).collect::<String>();
+                        metadata = serde_json::json!({"format": "html"}).to_string();
+                        found_content = true;
+                        log::debug!("CLIPBOARD: Found HTML: {}", clip_preview);
+                    }
+                }
+            }
+
+            // 3. Try RTF (rich text format from Word etc.)
+            if !found_content && ctx.has(ContentFormat::Rtf) {
+                if let Ok(rtf) = ctx.get_rich_text() {
+                    let trimmed = rtf.trim();
+                    if !trimmed.is_empty() {
+                        clip_content = trimmed.as_bytes().to_vec();
+                        clip_hash = calculate_hash(&clip_content);
+                        clip_type = "rtf";
+                        clip_preview = strip_rtf_tags(trimmed).chars().take(200).collect::<String>();
+                        metadata = serde_json::json!({"format": "rtf"}).to_string();
+                        found_content = true;
+                        log::debug!("CLIPBOARD: Found RTF: {}", clip_preview);
+                    }
+                }
+            }
+
+            // 4. Try plain text via context (fallback — only if no rich format was captured)
+            if !found_content && ctx.has(ContentFormat::Text) {
+                if let Ok(text) = ctx.get_text() {
+                    let trimmed = text.trim().to_string();
+                    if !trimmed.is_empty() {
+                        clip_content = trimmed.as_bytes().to_vec();
+                        clip_hash = calculate_hash(&clip_content);
+                        clip_type = "text";
+                        clip_preview = trimmed.chars().take(200).collect::<String>();
+                        found_content = true;
+                        log::debug!("CLIPBOARD: Found text: {}", clip_preview);
+                    }
+                }
             }
         }
+
+        // Fallback: plugin's read_text if ClipboardContext failed altogether
+        if !found_content {
+            if let Ok(text) = read_text().await {
+                let trimmed = text.trim().to_string();
+                if !trimmed.is_empty() {
+                    clip_content = trimmed.as_bytes().to_vec();
+                    clip_hash = calculate_hash(&clip_content);
+                    clip_type = "text";
+                    clip_preview = trimmed.chars().take(200).collect::<String>();
+                    found_content = true;
+                    log::debug!("CLIPBOARD: Found text (fallback): {}", clip_preview);
+                }
+            }
+        }
+
+        text_read_ms = rich_read_started.elapsed().as_millis();
     }
 
     if !found_content {
@@ -896,5 +978,80 @@ pub fn send_paste_input() {
         let result = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
         log::info!("send_paste_input: SendInput returned {}", result);
     }
+}
+
+pub fn strip_html_tags(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut in_tag = false;
+    let mut in_entity = false;
+    let mut entity = String::new();
+
+    for ch in html.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            '&' if !in_tag => { in_entity = true; entity.clear(); }
+            ';' if in_entity => {
+                in_entity = false;
+                let decoded = match entity.as_str() {
+                    "amp" => "&",
+                    "lt" => "<",
+                    "gt" => ">",
+                    "quot" => "\"",
+                    "#39" => "'",
+                    "nbsp" => " ",
+                    _ => "",
+                };
+                out.push_str(decoded);
+            }
+            _ if in_entity => entity.push(ch),
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+
+    out.trim().to_string()
+}
+
+pub fn strip_rtf_tags(rtf: &str) -> String {
+    let mut out = String::new();
+    let bytes = rtf.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\\' => {
+                i += 1;
+                if i >= bytes.len() { break; }
+                match bytes[i] {
+                    b'\'' if i + 2 < bytes.len() => {
+                        let hex = std::str::from_utf8(&bytes[i+1..i+3]).unwrap_or("20");
+                        if let Ok(code) = u8::from_str_radix(hex, 16) {
+                            out.push(if code >= 32 && code != 127 { code as char } else { ' ' });
+                        }
+                        i += 3;
+                    }
+                    b'\'' => { i += 1; }
+                    b'\\' => { out.push('\\'); i += 1; }
+                    b'{' => { out.push('{'); i += 1; }
+                    b'}' => { out.push('}'); i += 1; }
+                    b'~' => { out.push(' '); i += 1; }
+                    b'_' => { out.push('-'); i += 1; }
+                    b'*' => { i += 1; }
+                    b'\n' | b'\r' => { i += 1; }
+                    _ if bytes[i].is_ascii_alphabetic() => {
+                        i += 1;
+                        while i < bytes.len() && bytes[i].is_ascii_alphabetic() { i += 1; }
+                        while i < bytes.len() && (bytes[i] == b'-' || bytes[i].is_ascii_digit()) { i += 1; }
+                        if i < bytes.len() && bytes[i] == b' ' { i += 1; }
+                    }
+                    _ => { i += 1; }
+                }
+            }
+            b'{' | b'}' => { i += 1; }
+            b'\r' | b'\n' => { i += 1; }
+            _ => { out.push(bytes[i] as char); i += 1; }
+        }
+    }
+    out.trim().to_string()
 }
 

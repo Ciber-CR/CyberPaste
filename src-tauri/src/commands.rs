@@ -1,5 +1,5 @@
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_clipboard_x::{start_listening, stop_listening, write_text};
+use tauri_plugin_clipboard_x::{start_listening, stop_listening, write_text, write_html, write_rtf, write_files};
 
 use crate::ai::{self, AiAction, AiConfig};
 use crate::database::Database;
@@ -33,6 +33,8 @@ pub async fn ai_process_clip(
     let text_content =
         if clip.clip_type == "text" || clip.clip_type == "html" || clip.clip_type == "url" {
             String::from_utf8_lossy(&clip.content).to_string()
+        } else if clip.clip_type == "rtf" {
+            crate::clipboard::strip_rtf_tags(&String::from_utf8_lossy(&clip.content))
         } else {
             return Err("AI processing only supported for text content".to_string());
         };
@@ -550,10 +552,65 @@ pub async fn paste_clip(
             if clip.clip_type == "image" {
                 crate::clipboard::set_ignore_hash(content_hash.clone());
                 // Frontend writes image via navigator.clipboard API.
+            } else if clip.clip_type == "file" {
+                let paths: Vec<String> = serde_json::from_slice(&clip.content).unwrap_or_default();
+                crate::clipboard::set_ignore_hash(content_hash.clone());
+
+                let mut last_err = String::new();
+                for i in 0..5 {
+                    match write_files(paths.clone()).await {
+                        Ok(_) => { last_err.clear(); break; }
+                        Err(e) => {
+                            last_err = e.to_string();
+                            log::warn!("Clipboard write (files) attempt {} failed: {}. Retrying...", i + 1, last_err);
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        }
+                    }
+                }
+                if !last_err.is_empty() {
+                    final_res = Err(format!("Failed to set clipboard files: {}", last_err));
+                }
+            } else if clip.clip_type == "html" {
+                let html_content = String::from_utf8_lossy(&clip.content).to_string();
+                let plain_text = crate::clipboard::strip_html_tags(&html_content);
+                crate::clipboard::set_ignore_hash(content_hash.clone());
+
+                let mut last_err = String::new();
+                for i in 0..5 {
+                    match write_html(plain_text.clone(), html_content.clone()).await {
+                        Ok(_) => { last_err.clear(); break; }
+                        Err(e) => {
+                            last_err = e.to_string();
+                            log::warn!("Clipboard write (html) attempt {} failed: {}. Retrying...", i + 1, last_err);
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        }
+                    }
+                }
+                if !last_err.is_empty() {
+                    final_res = Err(format!("Failed to set clipboard html: {}", last_err));
+                }
+            } else if clip.clip_type == "rtf" {
+                let rtf_content = String::from_utf8_lossy(&clip.content).to_string();
+                let plain_text = crate::clipboard::strip_rtf_tags(&rtf_content);
+                crate::clipboard::set_ignore_hash(content_hash.clone());
+
+                let mut last_err = String::new();
+                for i in 0..5 {
+                    match write_rtf(plain_text.clone(), rtf_content.clone()).await {
+                        Ok(_) => { last_err.clear(); break; }
+                        Err(e) => {
+                            last_err = e.to_string();
+                            log::warn!("Clipboard write (rtf) attempt {} failed: {}. Retrying...", i + 1, last_err);
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        }
+                    }
+                }
+                if !last_err.is_empty() {
+                    final_res = Err(format!("Failed to set clipboard rtf: {}", last_err));
+                }
             } else {
                 let content_str = String::from_utf8_lossy(&clip.content).to_string();
                 crate::clipboard::set_ignore_hash(content_hash.clone());
-                //crate::clipboard::set_last_stable_hash(content_hash.clone());
 
                 let mut last_err = String::new();
                 for i in 0..5 {
@@ -594,6 +651,8 @@ pub async fn paste_clip(
             if final_res.is_ok() {
                 let content = if clip.clip_type == "image" {
                     "[Image]".to_string()
+                } else if clip.clip_type == "file" || clip.clip_type == "html" || clip.clip_type == "rtf" {
+                    clip.text_preview.clone()
                 } else {
                     String::from_utf8_lossy(&clip.content).to_string()
                 };
@@ -1104,7 +1163,10 @@ pub async fn get_clip_stats(
         r#"SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN clip_type = 'image' THEN 1 ELSE 0 END) as images,
-            SUM(CASE WHEN clip_type = 'text' THEN 1 ELSE 0 END) as text
+            SUM(CASE WHEN clip_type = 'text' THEN 1 ELSE 0 END) as text,
+            SUM(CASE WHEN clip_type = 'file' THEN 1 ELSE 0 END) as files,
+            SUM(CASE WHEN clip_type = 'html' THEN 1 ELSE 0 END) as html,
+            SUM(CASE WHEN clip_type = 'rtf' THEN 1 ELSE 0 END) as rtf
          FROM clips WHERE is_deleted = 0"#
     )
     .fetch_one(pool)
@@ -1114,11 +1176,17 @@ pub async fn get_clip_stats(
     let total: i64 = row.get(0);
     let images: i64 = row.get(1);
     let text: i64 = row.get(2);
+    let files: i64 = row.get(3);
+    let html: i64 = row.get(4);
+    let rtf: i64 = row.get(5);
 
     Ok(serde_json::json!({
         "total": total,
         "images": images,
-        "text": text
+        "text": text,
+        "files": files,
+        "html": html,
+        "rtf": rtf
     }))
 }
 

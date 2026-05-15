@@ -26,6 +26,9 @@ interface ControlBarProps {
   totalClipCount: number;
   imageCount: number;
   textCount: number;
+  fileCount?: number;
+  htmlCount?: number;
+  rtfCount?: number;
   onFolderContextMenu: (e: React.MouseEvent, folderId: string) => void;
   theme: 'light' | 'dark';
   onToggleMode: () => void;
@@ -52,6 +55,9 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   totalClipCount,
   imageCount,
   textCount,
+  fileCount,
+  htmlCount,
+  rtfCount,
   onFolderContextMenu,
   theme,
   onToggleMode,
@@ -98,6 +104,12 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           <span className="text-amber-300/80">Images <span className="text-white/40">({imageCount})</span></span>
           <span className="text-white/20">|</span>
           <span className="text-emerald-300/80">Text <span className="text-white/40">({textCount})</span></span>
+          <span className="text-white/20">|</span>
+          <span className="text-yellow-300/80">Files <span className="text-white/40">({fileCount ?? 0})</span></span>
+          <span className="text-white/20">|</span>
+          <span className="text-sky-300/80">HTML <span className="text-white/40">({htmlCount ?? 0})</span></span>
+          <span className="text-white/20">|</span>
+          <span className="text-violet-300/80">RTF <span className="text-white/40">({rtfCount ?? 0})</span></span>
           {selectedFolder && (
             <>
               <span className="text-white/20">|</span>
@@ -246,15 +258,14 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 pl-2 shrink-0">
+        <div className="flex items-center gap-0.5 pl-2 shrink-0">
           {onResetSize && (
             <button
               onClick={onResetSize}
-              className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary/50 transition-all text-muted-foreground hover:text-primary"
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-all"
               title="Reset Window Size"
             >
-              <RotateCcw size={16} />
+              <RotateCcw size={15} />
             </button>
           )}
 
@@ -262,37 +273,53 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             <button
               onClick={onTogglePin}
               className={clsx(
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-                isPinned ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "hover:bg-secondary/50"
+                "h-8 w-8 flex items-center justify-center rounded-lg transition-all",
+                isPinned
+                  ? "text-indigo-400 bg-indigo-500/15 border border-indigo-500/30"
+                  : "text-white/30 hover:text-white/70 hover:bg-white/8"
               )}
               title={isPinned ? "Unpin Window" : "Pin Window"}
             >
-              {isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+              {isPinned ? <PinOff size={15} /> : <Pin size={15} />}
             </button>
           )}
 
           <button
             onClick={onMoreClick}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary/50 transition-all text-muted-foreground hover:text-primary"
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-all"
             title="Settings"
           >
-            <Settings size={16} />
+            <Settings size={15} />
           </button>
 
+          {/* View-toggle — primary action pill */}
           <button
             onClick={onToggleMode}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary/50 text-cyan-400 transition-all"
+            className="relative ml-1.5 flex items-center gap-1.5 h-8 px-3 rounded-lg overflow-hidden
+              bg-gradient-to-r from-cyan-500/20 to-indigo-500/20
+              border border-cyan-500/40
+              text-cyan-300 text-[10px] font-bold tracking-widest uppercase
+              shadow-[0_0_12px_rgba(6,182,212,0.2)]
+              hover:shadow-[0_0_22px_rgba(6,182,212,0.5)]
+              hover:border-cyan-400/70
+              hover:from-cyan-500/30 hover:to-indigo-500/30
+              transition-all duration-200 group"
             title={viewMode === 'full' ? "Switch to Compact Mode" : "Switch to Full Mode"}
           >
-            {viewMode === 'full' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {/* shimmer sweep */}
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-500 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            {viewMode === 'full'
+              ? <Minimize2 size={14} className="relative z-10 flex-shrink-0" />
+              : <Maximize2 size={14} className="relative z-10 flex-shrink-0" />
+            }
           </button>
 
           <button
             onClick={() => (window as any).__TAURI_INTERNALS__.invoke('hide_window')}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-rose-500/20 text-rose-500 transition-all"
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-white/25 hover:text-rose-400 hover:bg-rose-500/12 transition-all ml-0.5"
             title="Close Window"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
       </div>

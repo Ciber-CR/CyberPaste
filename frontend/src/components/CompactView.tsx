@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ClipboardItem as AppClip, FolderItem } from '../types';
-import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
+import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical, PanelLeftClose, PanelLeftOpen, PanelTop, Plus } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
@@ -46,6 +46,7 @@ interface CompactViewProps {
   compactFolderLayout?: 'horizontal' | 'vertical';
   compactSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  onToggleLayout?: () => void;
   onAddFolder?: () => void;
   onLoadMore?: () => void;
 }
@@ -80,6 +81,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
   compactFolderLayout = 'horizontal',
   compactSidebarCollapsed = false,
   onToggleSidebar,
+  onToggleLayout,
   onAddFolder,
   onLoadMore,
 }) => {
@@ -194,46 +196,70 @@ export const CompactView: React.FC<CompactViewProps> = ({
             <span data-tauri-drag-region className="text-[10px] font-medium text-cyan-400/80 tracking-widest uppercase bg-cyan-400/10 px-1.5 rounded-sm border border-cyan-400/20">Compact</span>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {onTogglePin && (
             <button
               onClick={onTogglePin}
               className={cn(
-                "p-1.5 rounded-md transition-colors",
-                isPinned ? "text-indigo-400 bg-indigo-500/10" : "text-slate-400 hover:bg-white/10"
+                "h-7 w-7 flex items-center justify-center rounded-md transition-all",
+                isPinned
+                  ? "text-indigo-400 bg-indigo-500/15 border border-indigo-500/30"
+                  : "text-white/30 hover:text-white/70 hover:bg-white/8"
               )}
               title={isPinned ? "Unpin Window" : "Pin Window"}
             >
-              {isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+              {isPinned ? <PinOff size={14} /> : <Pin size={14} />}
+            </button>
+          )}
+          {onToggleLayout && (
+            <button
+              onClick={onToggleLayout}
+              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white/70 hover:bg-white/8 transition-all"
+              title={isVertical ? t('compact.switchHorizontal') : t('compact.switchVertical')}
+            >
+              {isVertical ? <PanelTop size={14} /> : <PanelLeftOpen size={14} />}
             </button>
           )}
           <button
             onClick={handleResetSize}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+            className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white/70 hover:bg-white/8 transition-all"
             title="Reset Default Size"
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={14} />
           </button>
           <button
             onClick={onOpenSettings}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors opacity-60 hover:opacity-100 text-muted-foreground hover:text-primary"
+            className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white/70 hover:bg-white/8 transition-all"
             title="Settings"
           >
-            <Settings size={16} />
+            <Settings size={14} />
           </button>
+
+          {/* View-toggle — primary action pill */}
           <button
             onClick={onToggleMode}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-cyan-400"
-            title="Full View"
+            className="relative ml-1 flex items-center gap-1.5 h-7 px-2.5 rounded-lg overflow-hidden
+              bg-gradient-to-r from-cyan-500/20 to-indigo-500/20
+              border border-cyan-500/40
+              text-cyan-300 text-[10px] font-bold tracking-widest uppercase
+              shadow-[0_0_10px_rgba(6,182,212,0.2)]
+              hover:shadow-[0_0_18px_rgba(6,182,212,0.45)]
+              hover:border-cyan-400/70
+              hover:from-cyan-500/30 hover:to-indigo-500/30
+              transition-all duration-200 group"
+            title="Compact View"
           >
-            <Maximize2 size={16} />
+            {/* shimmer sweep */}
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-500 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <Maximize2 size={13} className="relative z-10 flex-shrink-0" />
           </button>
+
           <button
             onClick={() => (window as any).__TAURI_INTERNALS__.invoke('hide_window')}
-            className="p-1.5 rounded-md hover:bg-rose-500/20 transition-colors text-rose-500"
+            className="h-7 w-7 flex items-center justify-center rounded-md text-white/25 hover:text-rose-400 hover:bg-rose-500/12 transition-all ml-0.5"
             title="Close"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
       </div>
@@ -356,6 +382,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
             {/* Footer */}
             <div className="p-2 border-t border-white/5 bg-black/10 flex justify-between items-center text-[9px] opacity-40 font-mono tracking-tighter flex-shrink-0">
               <span>{t('compact.enterToPaste')}</span>
+              <span>{t('compact.arrowsFolders')}</span>
               <span>{t('compact.escToHide')}</span>
             </div>
           </div>
@@ -456,6 +483,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
 
           <div className="p-2 border-t border-white/5 bg-black/10 flex justify-between items-center text-[9px] opacity-40 font-mono tracking-tighter flex-shrink-0">
             <span>{t('compact.enterToPaste')}</span>
+            <span>{t('compact.arrowsFolders')}</span>
             <span>{t('compact.escToHide')}</span>
           </div>
         </>
@@ -493,7 +521,6 @@ const ClipRow: React.FC<{
         onContextMenu={(e) => onContextMenu?.(e, clip.id)}
         onMouseDown={(e) => {
           if (e.button === 0) {
-            e.preventDefault();
             onDragStart(clip.id, e.clientX, e.clientY);
           }
         }}
@@ -552,6 +579,13 @@ const ClipRow: React.FC<{
                 return null;
               })()}
             </>
+          ) : clip.clip_type === 'file' ? (
+            <span className="flex items-center gap-2 truncate">
+              <span className="text-[10px] font-bold text-yellow-400/70 uppercase flex-shrink-0">FILE</span>
+              <span className="text-xs truncate leading-none text-muted-foreground/80">
+                {clip.preview}
+              </span>
+            </span>
           ) : (
             <span className="text-xs font-medium truncate leading-none">
               {clip.preview.replace(/[\n\r\t]+/g, ' ')}
@@ -561,7 +595,7 @@ const ClipRow: React.FC<{
 
         <div className="flex-shrink-0 flex items-center gap-3 pr-2">
           <span className="text-[10px] opacity-30 flex items-center gap-1 whitespace-nowrap">
-            {index === 0 && (
+            {index === 0 && !selectedFolder && (
               <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase">Latest</span>
             )}
             {clip.source_icon && (
@@ -569,7 +603,7 @@ const ClipRow: React.FC<{
                 src={`data:image/png;base64,${clip.source_icon}`}
                 alt=""
                 draggable="false"
-                className="h-3.5 w-3.5 object-contain opacity-50 group-hover:opacity-100 transition-opacity"
+                className="h-3.5 w-3.5 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
               />
             )}
             <Clock size={10} className={selectedFolder === null ? "text-indigo-400" : "text-current"} />

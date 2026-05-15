@@ -16,6 +16,7 @@ interface ClipListProps {
   onCopy: (id: string) => void;
   onDragStart: (clipId: string, startX: number, startY: number) => void;
   selectedClipId: string | null;
+  selectedFolder?: string | null;
   onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
   resetToken?: number;
   viewMode?: 'full' | 'compact';
@@ -33,6 +34,7 @@ export const ClipList: React.FC<ClipListProps> = ({
   onCopy,
   onDragStart,
   selectedClipId,
+  selectedFolder,
   onCardContextMenu,
   resetToken = 0,
   scrollDirection = 'horizontal',
@@ -148,7 +150,7 @@ export const ClipList: React.FC<ClipListProps> = ({
         <ClipCard
           clip={clip}
           clipIndex={clips.length - index}
-          isLatest={index === 0}
+          isLatest={index === 0 && !selectedFolder}
           isSelected={selectedClipId === clip.id}
           onPaste={() => onPaste(clip.id)}
           onCopy={() => onCopy(clip.id)}
