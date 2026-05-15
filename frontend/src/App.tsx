@@ -523,13 +523,17 @@ function App() {
 
   // Total History Count
   const [totalClipCount, setTotalClipCount] = useState(0);
+  const [imageCount, setImageCount] = useState(0);
+  const [textCount, setTextCount] = useState(0);
 
   const refreshTotalCount = useCallback(async () => {
     try {
-      const count = await invoke<number>('get_clipboard_history_size');
-      setTotalClipCount(count);
+      const stats = await invoke<{ total: number; images: number; text: number }>('get_clip_stats');
+      setTotalClipCount(stats.total);
+      setImageCount(stats.images);
+      setTextCount(stats.text);
     } catch (e) {
-      console.error('Failed to get history size', e);
+      console.error('Failed to get clip stats', e);
     }
   }, []);
 
@@ -896,9 +900,10 @@ function App() {
   });
 
   return (
-    <div 
-      data-el="app-root" 
-      className="relative h-screen w-full overflow-hidden"
+    <div
+      data-el="app-root"
+      className="relative h-dvh w-full overflow-hidden"
+      style={{ border: '1px solid rgba(34, 211, 238, 0.25)' }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Content Container */}
@@ -962,7 +967,7 @@ function App() {
         ) : (
           <div
             data-el="app-frame"
-            className="flex h-full w-full flex-col font-sans text-foreground"
+            className="flex h-full w-full flex-col font-sans text-foreground pt-1.5"
           >
             <ControlBar
               style={{ height: LAYOUT.CONTROL_BAR_HEIGHT, flexShrink: 0 }}
@@ -991,6 +996,8 @@ function App() {
               onDragHover={handleDragHover}
               onDragLeave={handleDragLeave}
               totalClipCount={totalClipCount}
+              imageCount={imageCount}
+              textCount={textCount}
               onFolderContextMenu={(e, folderId) => {
                 if (folderId) handleContextMenu(e, 'folder', folderId);
               }}

@@ -23,6 +23,9 @@ pub struct AppSettings {
     pub scroll_direction: String, // "horizontal" or "vertical"
     pub compact_folder_layout: String, // "horizontal" or "vertical"
     pub compact_sidebar_collapsed: bool,
+    pub clipboard_sound_enabled: bool,
+    pub clipboard_sound_path: String,
+    pub auto_inject_paste: bool,
     pub pinned: bool,
     pub image_editor_path: String,
 
@@ -42,6 +45,10 @@ pub struct AppSettings {
 
     pub window_width: f64,
     pub window_height: f64,
+    pub full_window_width: f64,
+    pub full_window_height: f64,
+    pub compact_window_width: f64,
+    pub compact_window_height: f64,
     pub ignored_apps: HashSet<String>,
 }
 
@@ -64,6 +71,9 @@ impl Default for AppSettings {
             scroll_direction: "horizontal".to_string(),
             compact_folder_layout: "horizontal".to_string(),
             compact_sidebar_collapsed: false,
+            clipboard_sound_enabled: false,
+            clipboard_sound_path: "".to_string(),
+            auto_inject_paste: false,
             pinned: false,
             image_editor_path: "".to_string(),
 
@@ -84,6 +94,10 @@ impl Default for AppSettings {
 
             window_width: 550.0,
             window_height: crate::constants::FULL_HEIGHT,
+            full_window_width: 550.0,
+            full_window_height: crate::constants::FULL_HEIGHT,
+            compact_window_width: crate::constants::COMPACT_WIDTH,
+            compact_window_height: crate::constants::COMPACT_HEIGHT,
             ignored_apps: HashSet::new(),
         }
     }

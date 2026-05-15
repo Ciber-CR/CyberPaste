@@ -466,6 +466,14 @@ async fn process_clipboard_change(
     );
     let emit_ms = emit_started.elapsed().as_millis();
 
+    // Play sound if enabled
+    if let Some(manager) = app.try_state::<Arc<crate::settings_manager::SettingsManager>>() {
+        let settings = manager.get();
+        if settings.clipboard_sound_enabled && !settings.clipboard_sound_path.is_empty() {
+            let _ = crate::commands::play_clipboard_sound(settings.clipboard_sound_path.clone());
+        }
+    }
+
     log::info!(
         "[perf][clipboard_ingest] type={} existing={} full_bytes={} thumb_bytes={} image_read_ms={} decode_ms={} text_read_ms={} db_lookup_ms={} db_write_ms={} emit_ms={} total_ms={}",
         clip_type,

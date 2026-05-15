@@ -10,7 +10,8 @@
     "search": "Suchen",
     "loading": "Wird geladen...",
     "copied": "In die Zwischenablage kopiert",
-    "pasteSuccess": "Erfolgreich eingefügt"
+    "pasteSuccess": "Erfolgreich eingefügt",
+    "browse": "Durchsuchen"
   },
   "clipList": {
     "empty": "Noch keine Einträge",
@@ -72,6 +73,8 @@
     "compactSidebarCollapsedDesc": "Seitenleiste ausblenden, um den Clip-Listenbereich zu maximieren",
     "compactFolderLayoutHorizontal": "Horizontal",
     "compactFolderLayoutVertical": "Vertikal",
+    "clipboardSound": "Clipborad-Sound",
+    "clipboardSoundDesc": "Sound abspielen, wenn ein neuer Clip erfasst wird",
     "windowEffect": "Fenstereffekt",
     "floatAboveTaskbar": "Über Taskleiste schweben",
     "floatAboveTaskbarDesc": "Fenster über der Taskleiste anzeigen",
@@ -84,8 +87,10 @@
     "startupWithWindowsDesc": "Automatisch starten, wenn Windows hochfährt",
     "roundCorners": "Abgerundete Ecken",
     "roundCornersDesc": "Fensterecken über DWM abrunden (Windows 11). Kein Effekt im Clear-Modus.",
-    "autoPaste": "Automatisch einfügen",
-    "autoPasteDesc": "Inhalt nach der Auswahl automatisch einfügen",
+"autoPaste": "Automatisch einfügen",
+     "autoPasteDesc": "Inhalt nach der Auswahl automatisch einfügen",
+     "autoInjectPaste": "Automatisch injizieren",
+     "autoInjectPasteDesc": "Strg+V statt Umschalt+Einfügen simulieren",
     "ignoreGhostClips": "Geistereinträge ignorieren",
     "ignoreGhostClipsDesc": "Temporäre Zwischenablageeinträge ignorieren",
     "hotkey": "Globale Tastenkombination",

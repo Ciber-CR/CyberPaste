@@ -36,6 +36,9 @@ export interface Settings {
   scroll_direction?: 'horizontal' | 'vertical';
   compact_folder_layout?: 'horizontal' | 'vertical';
   compact_sidebar_collapsed?: boolean;
+  clipboard_sound_enabled?: boolean;
+  clipboard_sound_path?: string;
+  auto_inject_paste?: boolean;
   pinned?: boolean;
   auto_paste: boolean;
   ignore_ghost_clips: boolean;

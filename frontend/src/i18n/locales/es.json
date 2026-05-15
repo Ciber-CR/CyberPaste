@@ -11,7 +11,8 @@
     "loading": "Cargando...",
     "copied": "Copiado al portapapeles",
     "pasteSuccess": "Pegado con éxito",
-    "image": "Imagen"
+    "image": "Imagen",
+    "browse": "Examinar"
   },
   "compact": {
     "enterToPaste": "ENTER PARA PEGAR",
@@ -79,6 +80,8 @@
     "compactSidebarCollapsedDesc": "Ocultar barra lateral para maximizar el espacio de clips",
     "compactFolderLayoutHorizontal": "Horizontal",
     "compactFolderLayoutVertical": "Vertical",
+    "clipboardSound": "Sonido del Portapapeles",
+    "clipboardSoundDesc": "Reproducir un sonido cuando se captura un nuevo clip",
     "windowEffect": "Efecto de Ventana",
     "floatAboveTaskbar": "Flotar sobre la barra de tareas",
     "floatAboveTaskbarDesc": "Muestra la ventana encima de la barra de tareas",
@@ -88,8 +91,10 @@
     "startupWithWindowsDesc": "Inicia automáticamente al encender el PC",
     "roundCorners": "Esquinas Redondeadas",
     "roundCornersDesc": "Redondea las esquinas (Windows 11). No aplica en modo Clear.",
-    "autoPaste": "Pegado Automático",
-    "autoPasteDesc": "Pega el contenido automáticamente tras seleccionarlo",
+"autoPaste": "Pegado Automático",
+     "autoPasteDesc": "Pega el contenido automáticamente tras seleccionarlo",
+     "autoInjectPaste": "Pegado por Inyección Automática",
+     "autoInjectPasteDesc": "Simula Ctrl+V en lugar de Mayús+Insert para pegar",
     "ignoreGhostClips": "Ignorar Clips Fantasma",
     "ignoreGhostClipsDesc": "Ignora elementos temporales del portapapeles",
     "hotkey": "Atajo Global",

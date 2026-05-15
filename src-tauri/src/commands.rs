@@ -6,7 +6,7 @@ use crate::database::Database;
 use crate::models::{Clip, ClipboardItem, Folder, FolderItem};
 use crate::settings_manager::SettingsManager;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, Row};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -599,21 +599,44 @@ pub async fn paste_clip(
                 };
                 let _ = window.emit("clipboard-write", &content);
 
-                // Check auto_paste setting
+                // Check settings
                 let manager = app.state::<Arc<SettingsManager>>();
                 let settings = manager.get();
                 let auto_paste = settings.auto_paste;
-                log::info!("paste_clip: auto_paste={}", auto_paste);
+                let auto_inject = settings.auto_inject_paste;
+                log::info!("paste_clip: auto_paste={}, auto_inject={}", auto_paste, auto_inject);
 
                 if settings.pinned {
-                    if auto_paste {
-                        // If pinned and auto-paste is on, paste without hiding
+                    if auto_paste || auto_inject {
+                        // If pinned and auto-paste/auto-inject is on, paste without hiding
+                        let target_hwnd = if auto_inject {
+                            unsafe {
+                                let fg = windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow();
+                                fg.0 as isize
+                            }
+                        } else {
+                            0
+                        };
                         std::thread::spawn(move || {
                             std::thread::sleep(std::time::Duration::from_millis(150));
-                            crate::clipboard::send_paste_input();
+                            if auto_inject {
+                                simulate_ctrl_v_with_target(target_hwnd);
+                            } else {
+                                crate::clipboard::send_paste_input();
+                            }
                         });
                     }
                     // If pinned and not auto-pasting, just stay open (don't hide)
+                } else if auto_inject {
+                    // Capture target window before hiding
+                    let target_hwnd = crate::TARGET_FOREGROUND_HND.load(std::sync::atomic::Ordering::Relaxed) as isize;
+                    crate::animate_window_hide(
+                        &window,
+                        Some(Box::new(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            simulate_ctrl_v_with_target(target_hwnd);
+                        })),
+                    );
                 } else if auto_paste {
                     // Auto-Paste Logic (Normal - hide then paste)
                     crate::animate_window_hide(
@@ -1072,6 +1095,34 @@ pub async fn get_clipboard_history_size(
 }
 
 #[tauri::command]
+pub async fn get_clip_stats(
+    db: tauri::State<'_, Arc<Database>>,
+) -> Result<serde_json::Value, String> {
+    let pool = &db.pool;
+
+    let row = sqlx::query(
+        r#"SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN clip_type = 'image' THEN 1 ELSE 0 END) as images,
+            SUM(CASE WHEN clip_type = 'text' THEN 1 ELSE 0 END) as text
+         FROM clips WHERE is_deleted = 0"#
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let total: i64 = row.get(0);
+    let images: i64 = row.get(1);
+    let text: i64 = row.get(2);
+
+    Ok(serde_json::json!({
+        "total": total,
+        "images": images,
+        "text": text
+    }))
+}
+
+#[tauri::command]
 pub async fn clear_clipboard_history(db: tauri::State<'_, Arc<Database>>) -> Result<(), String> {
     let pool = &db.pool;
 
@@ -1171,6 +1222,11 @@ pub async fn register_global_shortcut(
                 if win_clone.is_visible().unwrap_or(false) && win_clone.is_focused().unwrap_or(false) {
                     crate::animate_window_hide(&win_clone, None);
                 } else {
+                    // Capture the foreground window before showing CyberPaste
+                    unsafe {
+                        let fg = windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow();
+                        crate::TARGET_FOREGROUND_HND.store(fg.0 as *mut (), std::sync::atomic::Ordering::Relaxed);
+                    }
                     crate::position_window_at_bottom(&win_clone);
                 }
             }
@@ -1223,14 +1279,22 @@ pub fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn pick_file(app: AppHandle) -> Result<String, String> {
+pub async fn pick_file(app: AppHandle, filter_name: Option<String>, extensions: Option<Vec<String>>) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
 
-    let file_path = app
-        .dialog()
-        .file()
-        .add_filter("Executables", &["exe", "app"])
-        .blocking_pick_file();
+    let mut dialog = app.dialog().file();
+
+    if let (Some(name), Some(exts)) = (filter_name, extensions) {
+        if !exts.is_empty() {
+            let ext_refs: Vec<&str> = exts.iter().map(|s| s.as_str()).collect();
+            dialog = dialog.add_filter(&name, &ext_refs);
+        }
+    } else {
+        // Default: all files
+        dialog = dialog.add_filter("All Files", &["*"]);
+    }
+
+    let file_path = dialog.blocking_pick_file();
 
     match file_path {
         Some(path) => Ok(path.to_string()),
@@ -1249,25 +1313,40 @@ pub fn get_layout_config() -> serde_json::Value {
 pub async fn toggle_view_mode(app: AppHandle, window: tauri::WebviewWindow) -> Result<String, String> {
     let manager = app.state::<Arc<SettingsManager>>();
     let mut settings = manager.get();
-    
-    let new_mode = if settings.view_mode == "full" {
-        settings.window_width = 550.0;
-        settings.window_height = 440.0;
+
+    let current_mode = settings.view_mode.clone();
+    let cur_w = settings.window_width;
+    let cur_h = settings.window_height;
+
+    let new_mode = if current_mode == "full" {
+        // Save current size as full view size
+        settings.full_window_width = if cur_w > 100.0 { cur_w } else { 550.0 };
+        settings.full_window_height = if cur_h > 100.0 { cur_h } else { crate::constants::FULL_HEIGHT };
+
+        // Restore compact view size
+        settings.window_width = if settings.compact_window_width > 100.0 { settings.compact_window_width } else { crate::constants::COMPACT_WIDTH };
+        settings.window_height = if settings.compact_window_height > 100.0 { settings.compact_window_height } else { crate::constants::COMPACT_HEIGHT };
         "compact".to_string()
     } else {
-        settings.window_height = crate::constants::FULL_HEIGHT;
+        // Save current size as compact view size
+        settings.compact_window_width = if cur_w > 100.0 { cur_w } else { crate::constants::COMPACT_WIDTH };
+        settings.compact_window_height = if cur_h > 100.0 { cur_h } else { crate::constants::COMPACT_HEIGHT };
+
+        // Restore full view size
+        settings.window_width = if settings.full_window_width > 100.0 { settings.full_window_width } else { 550.0 };
+        settings.window_height = if settings.full_window_height > 100.0 { settings.full_window_height } else { crate::constants::FULL_HEIGHT };
         "full".to_string()
     };
-    
+
     settings.view_mode = new_mode.clone();
     manager.save(settings.clone())?;
-    
+
     // Reposition window based on new mode
     crate::animate_window_show(&window);
-    
+
     // Notify frontend that settings changed
     let _ = app.emit("settings-changed", manager.get());
-    
+
     Ok(new_mode)
 }
 
@@ -1298,6 +1377,13 @@ pub async fn reset_window_size(app: AppHandle, window: tauri::WebviewWindow) -> 
     manager.update(|s| {
         s.window_width = default_w;
         s.window_height = default_h;
+        if is_full {
+            s.full_window_width = default_w;
+            s.full_window_height = default_h;
+        } else {
+            s.compact_window_width = default_w;
+            s.compact_window_height = default_h;
+        }
     }).await?;
 
     if is_full {
@@ -1617,4 +1703,146 @@ pub async fn center_window(window: tauri::WebviewWindow) -> Result<(), String> {
     
     let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y: current_pos.y }));
     Ok(())
+}
+
+#[tauri::command]
+pub fn play_clipboard_sound(sound_path: String) -> Result<(), String> {
+    if sound_path.is_empty() {
+        return Ok(());
+    }
+
+    // Use mciSendString for reliable playback of WAV and MP3
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::Media::Multimedia::mciSendStringW;
+
+    let alias = "cyberpaste_sound";
+
+    // Close any previous instance
+    let close_cmd = format!("close {}", alias);
+    let wide_close: Vec<u16> = OsStr::new(&close_cmd)
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    unsafe {
+        let _ = mciSendStringW(windows::core::PCWSTR(wide_close.as_ptr()), None, None);
+    }
+
+    let escaped_path = format!("\"{}\"", sound_path.replace('"', "\"\""));
+
+    // Open the file with mci
+    let open_cmd = format!("open {} alias {}", escaped_path, alias);
+    let wide_open: Vec<u16> = OsStr::new(&open_cmd)
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    unsafe {
+        let _ = mciSendStringW(windows::core::PCWSTR(wide_open.as_ptr()), None, None);
+    }
+
+    // Play asynchronously
+    let play_cmd = format!("play {} notify", alias);
+    let wide_play: Vec<u16> = OsStr::new(&play_cmd)
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    unsafe {
+        let _ = mciSendStringW(windows::core::PCWSTR(wide_play.as_ptr()), None, None);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn simulate_ctrl_v() -> Result<(), String> {
+    simulate_ctrl_v_internal(None);
+    Ok(())
+}
+
+pub fn simulate_ctrl_v_with_target(target_hwnd: isize) {
+    simulate_ctrl_v_internal(Some(target_hwnd));
+}
+
+fn simulate_ctrl_v_internal(target_hwnd: Option<isize>) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, KEYBDINPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP,
+        KEYBD_EVENT_FLAGS, VK_CONTROL, VK_V,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOWNA, IsIconic, IsWindowVisible};
+    use windows::Win32::Foundation::HWND;
+
+    // Restore the target window to foreground
+    if let Some(hwnd_val) = target_hwnd {
+        let hwnd = HWND(hwnd_val as _);
+        if !hwnd.0.is_null() {
+            unsafe {
+                // Only change visibility if needed — don't touch maximized windows
+                if IsIconic(hwnd).as_bool() {
+                    let _ = ShowWindow(hwnd, SW_RESTORE);
+                } else if !IsWindowVisible(hwnd).as_bool() {
+                    let _ = ShowWindow(hwnd, SW_SHOWNA);
+                }
+                let _ = SetForegroundWindow(hwnd);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+
+    // Small delay to ensure clipboard is ready
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    let inputs: [INPUT; 4] = [
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VK_CONTROL,
+                    wScan: 0,
+                    dwFlags: KEYBD_EVENT_FLAGS(0),
+                    time: 0,
+                    dwExtraInfo: std::ptr::null::<()>() as _,
+                },
+            },
+        },
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VK_V,
+                    wScan: 0,
+                    dwFlags: KEYBD_EVENT_FLAGS(0),
+                    time: 0,
+                    dwExtraInfo: std::ptr::null::<()>() as _,
+                },
+            },
+        },
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VK_V,
+                    wScan: 0,
+                    dwFlags: KEYEVENTF_KEYUP,
+                    time: 0,
+                    dwExtraInfo: std::ptr::null::<()>() as _,
+                },
+            },
+        },
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VK_CONTROL,
+                    wScan: 0,
+                    dwFlags: KEYEVENTF_KEYUP,
+                    time: 0,
+                    dwExtraInfo: std::ptr::null::<()>() as _,
+                },
+            },
+        },
+    ];
+
+    unsafe {
+        let _ = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+    }
 }

@@ -164,10 +164,13 @@ export const CompactView: React.FC<CompactViewProps> = ({
   const sidebarWidth = isVertical ? (compactSidebarCollapsed ? 0 : 140) : 0;
 
   return (
-    <div className={cn(
-      "flex flex-col h-full w-full font-['Segoe_UI',system-ui,sans-serif] select-none overflow-hidden",
-      theme === 'dark' ? "text-white/90" : "text-slate-800"
-    )}>
+    <div
+      className={cn(
+        "relative flex flex-col h-full w-full font-['Segoe_UI',system-ui,sans-serif] select-none overflow-hidden",
+        theme === 'dark' ? "text-white/90" : "text-slate-800"
+      )}
+      style={{ border: '1px solid rgba(34, 211, 238, 0.1)' }}
+    >
       {/* Header */}
       <div
         data-tauri-drag-region

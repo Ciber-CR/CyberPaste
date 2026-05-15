@@ -10,7 +10,8 @@
     "search": "Rechercher",
     "loading": "Chargement...",
     "copied": "Copié dans le presse-papiers",
-    "pasteSuccess": "Collé avec succès"
+    "pasteSuccess": "Collé avec succès",
+    "browse": "Parcourir"
   },
   "clipList": {
     "empty": "Aucun élément pour le moment",
@@ -72,6 +73,8 @@
     "compactSidebarCollapsedDesc": "Masquer la barre latérale pour maximiser l'espace de la liste des clips",
     "compactFolderLayoutHorizontal": "Horizontal",
     "compactFolderLayoutVertical": "Vertical",
+    "clipboardSound": "Son du presse-papiers",
+    "clipboardSoundDesc": "Jouer un son lorsqu'un nouveau clip est capturé",
     "windowEffect": "Effet de fenêtre",
     "floatAboveTaskbar": "Flotter au-dessus de la barre des tâches",
     "floatAboveTaskbarDesc": "Afficher la fenêtre au-dessus de la barre des tâches",
@@ -84,8 +87,10 @@
     "startupWithWindowsDesc": "Démarrer automatiquement au lancement de Windows",
     "roundCorners": "Coins arrondis",
     "roundCornersDesc": "Arrondir les coins de la fenêtre via DWM (Windows 11). Sans effet en mode Clear.",
-    "autoPaste": "Collage automatique",
-    "autoPasteDesc": "Coller automatiquement le contenu après la sélection",
+"autoPaste": "Collage automatique",
+     "autoPasteDesc": "Coller automatiquement le contenu après la sélection",
+     "autoInjectPaste": "Collage par injection automatique",
+     "autoInjectPasteDesc": "Simuler Ctrl+V au lieu de Maj+Insert pour le collage",
     "ignoreGhostClips": "Ignorer les éléments fantômes",
     "ignoreGhostClipsDesc": "Ignorer les éléments temporaires du presse-papiers",
     "hotkey": "Raccourci global",

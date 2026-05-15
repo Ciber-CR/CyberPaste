@@ -10,7 +10,8 @@
     "search": "検索",
     "loading": "読み込み中...",
     "copied": "クリップボードにコピーしました",
-    "pasteSuccess": "貼り付けに成功しました"
+    "pasteSuccess": "貼り付けに成功しました",
+    "browse": "参照"
   },
   "clipList": {
     "empty": "まだクリップがありません",
@@ -72,6 +73,8 @@
     "compactSidebarCollapsedDesc": "サイドバーを隠してクリップリストのスペースを最大化",
     "compactFolderLayoutHorizontal": "水平",
     "compactFolderLayoutVertical": "垂直",
+    "clipboardSound": "クリップボードサウンド",
+    "clipboardSoundDesc": "新しいクリップがキャプチャされたときにサウンドを再生",
     "windowEffect": "ウィンドウ効果",
     "floatAboveTaskbar": "タスクバーの上に表示",
     "floatAboveTaskbarDesc": "ウィンドウをタスクバーの上に表示します",
@@ -84,8 +87,10 @@
     "startupWithWindowsDesc": "Windows の起動時に自動的に開始します",
     "roundCorners": "角を丸くする",
     "roundCornersDesc": "DWM でウィンドウの角を丸くします (Windows 11)。Clear モードでは無効です。",
-    "autoPaste": "自動貼り付け",
-    "autoPasteDesc": "選択後に内容を自動的に貼り付けます",
+"autoPaste": "自動貼り付け",
+     "autoPasteDesc": "選択後に内容を自動的に貼り付けます",
+     "autoInjectPaste": "自動注入貼り付け",
+     "autoInjectPasteDesc": "Shift+Insert の代わりに Ctrl+V で貼り付けをシミュレート",
     "ignoreGhostClips": "ゴーストクリップを無視",
     "ignoreGhostClipsDesc": "一時的なクリップボード項目を無視します",
     "hotkey": "グローバルホットキー",

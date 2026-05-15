@@ -15,6 +15,7 @@ use std::str::FromStr;
 
 static IS_ANIMATING: AtomicBool = AtomicBool::new(false);
 static LAST_SHOW_TIME: AtomicI64 = AtomicI64::new(0);
+static TARGET_FOREGROUND_HND: std::sync::atomic::AtomicPtr<()> = std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
 
 mod ai;
 mod clipboard;
@@ -326,6 +327,11 @@ pub fn run_app() {
                         if win_clone.is_visible().unwrap_or(false) && win_clone.is_focused().unwrap_or(false) {
                             crate::animate_window_hide(&win_clone, None);
                         } else {
+                            // Capture the foreground window before showing CyberPaste
+                            unsafe {
+                                let fg = windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow();
+                                TARGET_FOREGROUND_HND.store(fg.0 as *mut (), std::sync::atomic::Ordering::Relaxed);
+                            }
                             position_window_at_bottom(&win_clone);
                         }
                     }
@@ -370,6 +376,7 @@ pub fn run_app() {
             settings_commands::save_settings,
             commands::hide_window,
             commands::get_clipboard_history_size,
+            commands::get_clip_stats,
             commands::clear_clipboard_history,
             commands::clear_all_clips,
             commands::remove_duplicate_clips,
@@ -395,7 +402,9 @@ pub fn run_app() {
             commands::update_clip_content,
             commands::open_with,
             commands::reset_window_size,
-            commands::center_window
+            commands::center_window,
+            commands::play_clipboard_sound,
+            commands::simulate_ctrl_v
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

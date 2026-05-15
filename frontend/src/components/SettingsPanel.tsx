@@ -18,6 +18,12 @@ import {
   Heart,
   Flame,
   RotateCcw,
+  Volume2,
+  Clipboard,
+  Layout,
+  Command,
+  Lock,
+  Database,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
@@ -308,7 +314,10 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
 
   const handleBrowseFile = async () => {
     try {
-      const path = await invoke<string>('pick_file');
+      const path = await invoke<string>('pick_file', {
+        filterName: 'Executables',
+        extensions: ['exe', 'app'],
+      });
       const filename = path.split(/[\\/]/).pop() || path;
       setNewIgnoredApp(filename);
     } catch (e) {
@@ -553,11 +562,11 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
               {/* --- GENERAL TAB --- */}
               {activeTab === 'general' && (
                 <>
+                  {/* Appearance */}
                   <section className="space-y-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary/80">
-                      {t('settings.appearanceBehavior')}
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary/80 flex items-center gap-2">
+                      <SettingsIcon size={14} /> Appearance
                     </h3>
-
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-3">
                         <label className="block">
@@ -573,7 +582,6 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           ]}
                         />
                       </div>
-
                       <div className="space-y-3">
                         <label className="block">
                           <span className="text-base font-medium">{t('settings.language')}</span>
@@ -591,115 +599,21 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           ]}
                         />
                       </div>
-
-                      <div className="space-y-3 col-span-2 mt-2">
-                        <label className="block">
-                          <span className="text-sm font-bold uppercase tracking-tight text-primary/70">External Image Editor</span>
-                          <p className="text-xs text-muted-foreground">Path to your favorite editor (e.g., CyberViewer). Opens when editing image clips.</p>
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={settings.image_editor_path || ''}
-                            onChange={(e) => updateSetting('image_editor_path', e.target.value)}
-                            placeholder="C:\Path\To\Editor.exe"
-                            className="flex-1 rounded-lg border border-border bg-input px-3 py-2 text-sm transition-all focus:border-primary/50"
-                          />
-                          <button
-                            onClick={async () => {
-                              try {
-                                const path = await invoke<string>('pick_file');
-                                if (path) updateSetting('image_editor_path', path);
-                              } catch (e) {}
-                            }}
-                            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium hover:bg-accent/80 transition-all"
-                          >
-                            Browse
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 col-span-2 mt-2">
-                        <label className="block">
-                          <span className="text-sm font-bold uppercase tracking-tight text-primary/70">{t('settings.historyLimit')}</span>
-                          <p className="text-xs text-muted-foreground">Maximum number of clips to keep in history (excludes folders).</p>
-                        </label>
-                        <div className="flex items-center gap-4 bg-accent/10 p-3 rounded-xl border border-border/40">
-                          <input
-                            type="range"
-                            min="50"
-                            max="1000"
-                            step="50"
-                            value={settings.max_items || 200}
-                            onChange={(e) => updateSetting('max_items', parseInt(e.target.value))}
-                            className="flex-1 accent-primary cursor-pointer h-1.5 bg-accent rounded-lg appearance-none"
-                          />
-                          <span className="font-mono text-sm font-bold text-primary min-w-[3rem] text-center bg-primary/10 border border-primary/20 rounded-lg px-2 py-1 shadow-sm">
-                            {settings.max_items || 200}
-                          </span>
-                        </div>
-                      </div>
                     </div>
-
-                      <div className="space-y-3">
-                        <label className="block">
-                          <span className="text-base font-medium">{t('settings.scrollDirection')}</span>
-                          <p className="text-xs text-muted-foreground">{t('settings.scrollDirectionDesc')}</p>
-                        </label>
-                        <Select
-                          value={settings.scroll_direction || 'horizontal'}
-                          onChange={(val) => updateSetting('scroll_direction', val)}
-                          options={[
-                            { value: 'horizontal', label: t('settings.scrollHorizontal') },
-                            { value: 'vertical', label: t('settings.scrollVertical') },
-                          ]}
-                        />
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="block">
-                          <span className="text-base font-medium">{t('settings.compactFolderLayout')}</span>
-                          <p className="text-xs text-muted-foreground">{t('settings.compactFolderLayoutDesc')}</p>
-                        </label>
-                        <Select
-                          value={settings.compact_folder_layout || 'horizontal'}
-                          onChange={(val) => updateSetting('compact_folder_layout', val)}
-                          options={[
-                            { value: 'horizontal', label: t('settings.scrollHorizontal') },
-                            { value: 'vertical', label: t('settings.scrollVertical') },
-                          ]}
-                        />
-                        {(settings.compact_folder_layout || 'horizontal') === 'vertical' && (
-                          <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
-                            <div>
-                              <span className="text-sm font-medium">{t('settings.compactSidebarCollapsed')}</span>
-                              <p className="text-xs text-muted-foreground">{t('settings.compactSidebarCollapsedDesc')}</p>
-                            </div>
-                            <button
-                              onClick={() => updateSetting('compact_sidebar_collapsed', !(settings.compact_sidebar_collapsed ?? false))}
-                              className={`h-6 w-11 rounded-full transition-colors ${(settings.compact_sidebar_collapsed ?? false) ? 'bg-primary' : 'bg-accent'}`}
-                            >
-                              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${(settings.compact_sidebar_collapsed ?? false) ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
                     <div className="space-y-3">
-                        <label className="block">
-                          <span className="text-base font-medium">{t('settings.windowEffect')}</span>
-                        </label>
-                        <Select
-                          value={settings.mica_effect || 'clear'}
-                          onChange={(val) => updateSetting('mica_effect', val)}
-                          options={[
-                            { value: 'mica_alt', label: 'Mica Alt' },
-                            { value: 'mica', label: 'Mica' },
-                            { value: 'clear', label: 'Clear' },
-                          ]}
-                        />
-                      </div>
-
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.windowEffect')}</span>
+                      </label>
+                      <Select
+                        value={settings.mica_effect || 'clear'}
+                        onChange={(val) => updateSetting('mica_effect', val)}
+                        options={[
+                          { value: 'mica_alt', label: 'Mica Alt' },
+                          { value: 'mica', label: 'Mica' },
+                          { value: 'clear', label: 'Clear' },
+                        ]}
+                      />
+                    </div>
                     <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
                       <div>
                         <span className="text-sm font-medium">{t('settings.floatAboveTaskbar')}</span>
@@ -712,7 +626,6 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                         <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${(settings.float_above_taskbar ?? true) ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
                     </div>
-
                     <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
                       <div>
                         <span className="text-sm font-medium">{t('settings.roundCorners')}</span>
@@ -725,92 +638,224 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                         <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${(settings.round_corners ?? false) ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
                     </div>
-
                     <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
                       <div>
-                        <span className="text-base font-semibold">
-                          {t('settings.startupWithWindows')}
-                        </span>
-                        <p className="text-sm text-muted-foreground/80">
-                          {t('settings.startupWithWindowsDesc')}
-                        </p>
+                        <span className="text-base font-semibold">{t('settings.startupWithWindows')}</span>
+                        <p className="text-sm text-muted-foreground/80">{t('settings.startupWithWindowsDesc')}</p>
                       </div>
                       <button
-                        onClick={() =>
-                          updateSetting('startup_with_windows', !settings.startup_with_windows)
-                        }
+                        onClick={() => updateSetting('startup_with_windows', !settings.startup_with_windows)}
                         className={`h-6 w-11 rounded-full transition-colors ${settings.startup_with_windows ? 'bg-primary' : 'bg-accent'}`}
                       >
-                        <div
-                          className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.startup_with_windows ? 'translate-x-5' : 'translate-x-0.5'}`}
-                        />
+                        <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.startup_with_windows ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>
                     </div>
+                  </section>
 
+                  {/* Clipboard & Capture */}
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-400/80 flex items-center gap-2">
+                      <Clipboard size={14} /> Clipboard & Capture
+                    </h3>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-sm font-bold uppercase tracking-tight text-primary/70">{t('settings.historyLimit')}</span>
+                        <p className="text-xs text-muted-foreground">Maximum number of clips to keep in history (excludes folders).</p>
+                      </label>
+                      <div className="flex items-center gap-4 bg-accent/10 p-3 rounded-xl border border-border/40">
+                        <input
+                          type="range"
+                          min="50"
+                          max="1000"
+                          step="50"
+                          value={settings.max_items || 200}
+                          onChange={(e) => updateSetting('max_items', parseInt(e.target.value))}
+                          className="flex-1 accent-primary cursor-pointer h-1.5 bg-accent rounded-lg appearance-none"
+                        />
+                        <span className="font-mono text-sm font-bold text-primary min-w-[3rem] text-center bg-primary/10 border border-primary/20 rounded-lg px-2 py-1 shadow-sm">
+                          {settings.max_items || 200}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
+                      <div>
+                        <span className="text-base font-semibold">{t('settings.ignoreGhostClips')}</span>
+                        <p className="text-sm text-muted-foreground/80">{t('settings.ignoreGhostClipsDesc')}</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('ignore_ghost_clips', !settings.ignore_ghost_clips)}
+                        className={`h-6 w-11 rounded-full transition-colors ${settings.ignore_ghost_clips ? 'bg-primary' : 'bg-accent'}`}
+                      >
+                        <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.ignore_ghost_clips ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
+                        <div>
+                          <span className="text-sm font-medium">{t('settings.clipboardSound')}</span>
+                          <p className="text-xs text-muted-foreground">{t('settings.clipboardSoundDesc')}</p>
+                        </div>
+                        <button
+                          onClick={() => updateSetting('clipboard_sound_enabled', !(settings.clipboard_sound_enabled ?? false))}
+                          className={`h-6 w-11 rounded-full transition-colors ${(settings.clipboard_sound_enabled ?? false) ? 'bg-primary' : 'bg-accent'}`}
+                        >
+                          <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${(settings.clipboard_sound_enabled ?? false) ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                      {(settings.clipboard_sound_enabled ?? false) && (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={settings.clipboard_sound_path || ''}
+                            onChange={(e) => updateSetting('clipboard_sound_path', e.target.value)}
+                            placeholder="C:\path\to\sound.wav"
+                            className="flex-1 bg-black/20 border border-white/5 rounded-lg py-1.5 px-3 text-xs focus:outline-none focus:border-cyan-500/50 transition-all"
+                          />
+                          <button
+                            onClick={async () => {
+                              try {
+                                const path = await invoke<string>('pick_file', {
+                                  filterName: 'Sound Files',
+                                  extensions: ['wav', 'mp3'],
+                                });
+                                if (path) updateSetting('clipboard_sound_path', path);
+                              } catch (e) {
+                                if (e !== 'No file selected') console.error(e);
+                              }
+                            }}
+                            className="btn btn-secondary text-xs flex-shrink-0"
+                          >
+                            {t('common.browse')}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (settings.clipboard_sound_path) {
+                                try {
+                                  await invoke('play_clipboard_sound', { soundPath: settings.clipboard_sound_path });
+                                } catch (e) {
+                                  console.error('Sound preview failed:', e);
+                                }
+                              }
+                            }}
+                            disabled={!settings.clipboard_sound_path}
+                            className="btn btn-secondary text-xs flex-shrink-0 disabled:opacity-50"
+                            title="Preview sound"
+                          >
+                            <Volume2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
                       <div>
                         <span className="text-sm font-medium">{t('settings.autoPaste')}</span>
-                        <p className="text-sm text-muted-foreground/80">
-                          {t('settings.autoPasteDesc')}
-                        </p>
+                        <p className="text-sm text-muted-foreground/80">{t('settings.autoPasteDesc')}</p>
                       </div>
                       <button
                         onClick={() => updateSetting('auto_paste', !settings.auto_paste)}
                         className={`h-6 w-11 rounded-full transition-colors ${settings.auto_paste ? 'bg-primary' : 'bg-accent'}`}
                       >
-                        <div
-                          className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.auto_paste ? 'translate-x-5' : 'translate-x-0.5'}`}
-                        />
+                        <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.auto_paste ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>
                     </div>
-
                     <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
                       <div>
-                        <span className="text-base font-semibold">
-                          {t('settings.ignoreGhostClips')}
-                        </span>
-                        <p className="text-sm text-muted-foreground/80">
-                          {t('settings.ignoreGhostClipsDesc')}
-                        </p>
+                        <span className="text-sm font-medium">{t('settings.autoInjectPaste')}</span>
+                        <p className="text-sm text-muted-foreground/80">{t('settings.autoInjectPasteDesc')}</p>
                       </div>
                       <button
-                        onClick={() =>
-                          updateSetting('ignore_ghost_clips', !settings.ignore_ghost_clips)
-                        }
-                        className={`h-6 w-11 rounded-full transition-colors ${settings.ignore_ghost_clips ? 'bg-primary' : 'bg-accent'}`}
+                        onClick={() => updateSetting('auto_inject_paste', !settings.auto_inject_paste)}
+                        className={`h-6 w-11 rounded-full transition-colors ${settings.auto_inject_paste ? 'bg-primary' : 'bg-accent'}`}
                       >
-                        <div
-                          className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.ignore_ghost_clips ? 'translate-x-5' : 'translate-x-0.5'}`}
-                        />
+                        <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.auto_inject_paste ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>
                     </div>
-                  </section>
-
-                  <section className="space-y-4 pt-4 border-t border-border/30">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-rose-500/80 flex items-center gap-2">
-                        <Flame size={16} />
-                        Panic Room
-                    </h3>
-                    <div className="flex flex-col gap-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5">
-                        <p className="text-xs text-muted-foreground">
-                            If the window becomes deformed, off-screen, or behaves erratically, use this to restore all layout and visibility settings to factory defaults.
-                        </p>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-sm font-bold uppercase tracking-tight text-primary/70">External Image Editor</span>
+                        <p className="text-xs text-muted-foreground">Path to your favorite editor (e.g., CyberViewer). Opens when editing image clips.</p>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={settings.image_editor_path || ''}
+                          onChange={(e) => updateSetting('image_editor_path', e.target.value)}
+                          placeholder="C:\Path\To\Editor.exe"
+                          className="flex-1 rounded-lg border border-border bg-input px-3 py-2 text-sm transition-all focus:border-primary/50"
+                        />
                         <button
-                            onClick={handleResetLayout}
-                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-rose-500 text-white font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
+                          onClick={async () => {
+                            try {
+                              const path = await invoke<string>('pick_file', {
+                                filterName: 'Executables',
+                                extensions: ['exe', 'app'],
+                              });
+                              if (path) updateSetting('image_editor_path', path);
+                            } catch (e) {}
+                          }}
+                          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium hover:bg-accent/80 transition-all"
                         >
-                            <RotateCcw size={16} />
-                            Reset Layout & Visibility
+                          Browse
                         </button>
+                      </div>
                     </div>
                   </section>
 
+                  {/* Layout & Navigation */}
                   <section className="space-y-4">
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                      {t('settings.shortcuts')}
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400/80 flex items-center gap-2">
+                      <Layout size={14} /> Layout & Navigation
+                    </h3>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.scrollDirection')}</span>
+                        <p className="text-xs text-muted-foreground">{t('settings.scrollDirectionDesc')}</p>
+                      </label>
+                      <Select
+                        value={settings.scroll_direction || 'horizontal'}
+                        onChange={(val) => updateSetting('scroll_direction', val)}
+                        options={[
+                          { value: 'horizontal', label: t('settings.scrollHorizontal') },
+                          { value: 'vertical', label: t('settings.scrollVertical') },
+                        ]}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.compactFolderLayout')}</span>
+                        <p className="text-xs text-muted-foreground">{t('settings.compactFolderLayoutDesc')}</p>
+                      </label>
+                      <Select
+                        value={settings.compact_folder_layout || 'horizontal'}
+                        onChange={(val) => updateSetting('compact_folder_layout', val)}
+                        options={[
+                          { value: 'horizontal', label: t('settings.scrollHorizontal') },
+                          { value: 'vertical', label: t('settings.scrollVertical') },
+                        ]}
+                      />
+                      {(settings.compact_folder_layout || 'horizontal') === 'vertical' && (
+                        <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
+                          <div>
+                            <span className="text-sm font-medium">{t('settings.compactSidebarCollapsed')}</span>
+                            <p className="text-xs text-muted-foreground">{t('settings.compactSidebarCollapsedDesc')}</p>
+                          </div>
+                          <button
+                            onClick={() => updateSetting('compact_sidebar_collapsed', !(settings.compact_sidebar_collapsed ?? false))}
+                            className={`h-6 w-11 rounded-full transition-colors ${(settings.compact_sidebar_collapsed ?? false) ? 'bg-primary' : 'bg-accent'}`}
+                          >
+                            <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${(settings.compact_sidebar_collapsed ?? false) ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Shortcuts */}
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400/80 flex items-center gap-2">
+                      <Command size={14} /> Shortcuts
                     </h3>
                     <div className="space-y-6">
-                      {/* Global Hotkey */}
                       <div className="space-y-3">
                         <label className="block">
                           <span className="text-sm font-medium">{t('settings.hotkey')}</span>
@@ -857,8 +902,6 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           </button>
                         )}
                       </div>
-
-                      {/* View Mode Hotkey */}
                       <div className="space-y-3">
                         <label className="block">
                           <span className="text-sm font-medium">{t('settings.viewModeHotkey')}</span>
@@ -908,16 +951,15 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                     </div>
                   </section>
 
+                  {/* Privacy */}
                   <section className="space-y-4">
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                      {t('settings.privacyExceptions')}
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400/80 flex items-center gap-2">
+                      <Lock size={14} /> Privacy
                     </h3>
                     <div className="space-y-3">
                       <label className="block">
                         <span className="text-sm font-medium">{t('settings.ignoredApps')}</span>
-                        <p className="text-sm text-muted-foreground/80">
-                          {t('settings.ignoredAppsDesc')}
-                        </p>
+                        <p className="text-sm text-muted-foreground/80">{t('settings.ignoredAppsDesc')}</p>
                       </label>
 
                       <div className="flex gap-2">
@@ -973,9 +1015,10 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                     </div>
                   </section>
 
+                  {/* Data Management */}
                   <section className="space-y-4">
-                    <h3 className="text-sm font-medium text-red-500/80">
-                      {t('settings.dataManagement')}
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-rose-400/80 flex items-center gap-2">
+                      <Database size={14} /> Data Management
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -985,7 +1028,6 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                         <Trash2 size={16} className="mr-2" />
                         {t('settings.clearHistory')}
                       </button>
-
                       <button
                         onClick={async () => {
                           try {
@@ -1001,6 +1043,25 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                         className="btn btn-secondary text-xs"
                       >
                         {t('settings.removeDuplicates')}
+                      </button>
+                    </div>
+                  </section>
+
+                  {/* Panic Room */}
+                  <section className="space-y-4 pt-4 border-t border-border/30">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-rose-500/80 flex items-center gap-2">
+                      <Flame size={14} /> Panic Room
+                    </h3>
+                    <div className="flex flex-col gap-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5">
+                      <p className="text-xs text-muted-foreground">
+                        If the window becomes deformed, off-screen, or behaves erratically, use this to restore all layout and visibility settings to factory defaults.
+                      </p>
+                      <button
+                        onClick={handleResetLayout}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-rose-500 text-white font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
+                      >
+                        <RotateCcw size={16} />
+                        Reset Layout & Visibility
                       </button>
                     </div>
                   </section>

@@ -7,6 +7,14 @@
   100% { transform: translateX(-50%); }
 }
 
+@keyframes subtle-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-subtle-gradient {
+  animation: subtle-gradient 8s ease infinite;
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;

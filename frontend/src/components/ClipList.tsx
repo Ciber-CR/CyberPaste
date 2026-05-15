@@ -43,15 +43,25 @@ export const ClipList: React.FC<ClipListProps> = ({
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1000);
+  const [containerHeight, setContainerHeight] = useState(LAYOUT.FULL_HEIGHT - LAYOUT.CONTROL_BAR_HEIGHT);
   const gridRef = useRef<GridImperativeAPI>(null);
 
   const isVertical = scrollDirection === 'vertical';
 
   useEffect(() => {
+    let rafId: number;
     const updateSize = () => {
       if (containerRef.current) {
         const w = containerRef.current.offsetWidth;
-        if (w > 0) setContainerWidth(w);
+        const h = containerRef.current.offsetHeight;
+        if (w > 0 && h > 0) {
+          // Batch updates with requestAnimationFrame for smooth resizing
+          cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(() => {
+            setContainerWidth(w);
+            setContainerHeight(h);
+          });
+        }
       }
     };
 
@@ -62,6 +72,7 @@ export const ClipList: React.FC<ClipListProps> = ({
     if (containerRef.current) observer.observe(containerRef.current);
 
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener('resize', updateSize);
       observer.disconnect();
     };
@@ -170,7 +181,7 @@ export const ClipList: React.FC<ClipListProps> = ({
     );
   }
 
-  const gridHeight = isVertical ? (LAYOUT.WINDOW_HEIGHT - LAYOUT.CONTROL_BAR_HEIGHT) : (LAYOUT.FULL_HEIGHT - LAYOUT.CONTROL_BAR_HEIGHT);
+  const gridHeight = containerHeight;
 
   return (
     <div ref={containerRef} className="h-full w-full flex-1 overflow-hidden">
