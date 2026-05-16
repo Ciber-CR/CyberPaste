@@ -17,7 +17,7 @@ import { useKeyboard } from './hooks/useKeyboard';
 import { useTheme } from './hooks/useTheme';
 import { useLanguage } from './hooks/useLanguage';
 import { useTranslation } from 'react-i18next';
-import { Toaster, toast } from 'sonner';
+import { systemToast as toast } from './utils/toast';
 import { LAYOUT } from './constants';
 import { generateDemoClips } from './debug/demoData';
 
@@ -624,7 +624,10 @@ function App() {
         }
       }
 
-      invoke('paste_clip', { id: clipId }).catch(console.error);
+      await invoke('paste_clip', { id: clipId });
+      // Force immediate refresh in case the background monitor event is ignored
+      refreshCurrentFolder();
+      refreshTotalCount();
     } catch (error) {
       console.error('Failed to paste clip:', error);
     }
@@ -639,6 +642,9 @@ function App() {
       }
 
       await invoke('paste_clip', { id: clipId });
+      // Force immediate refresh
+      refreshCurrentFolder();
+      refreshTotalCount();
 
       toast.success(t('common.copied'));
     } catch (error) {
@@ -1083,17 +1089,31 @@ function App() {
             onClose={handleCloseContextMenu}
             options={
               contextMenu.type === 'card'
-                ? [
-                    {
+                ? (() => {
+                    const clip = clips.find(c => c.id === contextMenu.itemId);
+                    const opts = [];
+                    
+                    if (clip?.clip_type === 'image') {
+                      opts.push({
+                        label: t('contextMenu.view'),
+                        onClick: () => {
+                          if (settings.show_action_messages) {
+                            toast.info('Opening Viewer...');
+                          }
+                          invoke('open_image_viewer', { clipId: clip.id }).catch(console.error);
+                        }
+                      });
+                    }
+
+                    opts.push({
                       label: 'Edit',
                       onClick: () => {
-                        const clip = clips.find(c => c.id === contextMenu.itemId);
                         if (clip) {
                           if (clip.clip_type === 'image') {
                             if (settings?.image_editor_path) {
                               invoke('open_with', { 
                                 appPath: settings.image_editor_path, 
-                                filePath: clip.content 
+                                filePath: clip.image_path || clip.content 
                               }).then(() => {
                                 // Auto-hide after successful launch
                                 invoke('hide_window');
@@ -1103,49 +1123,67 @@ function App() {
                               toast.info('Please configure an External Image Editor (like CyberViewer) in Settings to use this feature.');
                             }
                           } else {
-                            setEditClip({
-                              isOpen: true,
-                              clipId: contextMenu.itemId,
-                              content: clip.content
-                            });
+                            // Fetch full content before editing since get_clips uses preview_only
+                            invoke<ClipboardItem>('get_clip', { clipId: clip.id })
+                              .then(fullClip => {
+                                setEditClip({
+                                  isOpen: true,
+                                  clipId: fullClip.id,
+                                  content: fullClip.content
+                                });
+                              })
+                              .catch(err => {
+                                console.error('Failed to fetch clip content:', err);
+                                // Fallback to preview if fetch fails
+                                setEditClip({
+                                  isOpen: true,
+                                  clipId: clip.id,
+                                  content: clip.content || clip.preview
+                                });
+                              });
                           }
                         }
                       }
-                    },
-                    {
-                      label: 'Move to Folder...',
+                    });
+
+                    opts.push({
+                      label: t('contextMenu.copy') || 'Copy',
+                      onClick: () => handlePaste(contextMenu.itemId),
+                    });
+
+                    opts.push({
+                      label: t('contextMenu.moveToFolder') || 'Move to Folder...',
                       onClick: () => setMoveToFolderClipId(contextMenu.itemId),
-                    },
-                    {
+                    });
+
+                    opts.push({
                       label: `${settings?.ai_title_summarize || t('contextMenu.summarize')}`,
-                      onClick: () =>
-                        handleAiAction(contextMenu.itemId, 'summarize', t('ai.summary')),
-                    },
-                    {
+                      onClick: () => handleAiAction(contextMenu.itemId, 'summarize', t('ai.summary')),
+                    });
+
+                    opts.push({
                       label: `${settings?.ai_title_translate || t('contextMenu.translate')}`,
-                      onClick: () =>
-                        handleAiAction(contextMenu.itemId, 'translate', t('ai.translation')),
-                    },
-                    {
+                      onClick: () => handleAiAction(contextMenu.itemId, 'translate', t('ai.translation')),
+                    });
+
+                    opts.push({
                       label: `${settings?.ai_title_explain_code || t('contextMenu.explainCode')}`,
-                      onClick: () =>
-                        handleAiAction(
-                          contextMenu.itemId,
-                          'explain_code',
-                          t('ai.codeExplanation')
-                        ),
-                    },
-                    {
+                      onClick: () => handleAiAction(contextMenu.itemId, 'explain_code', t('ai.codeExplanation')),
+                    });
+
+                    opts.push({
                       label: `${settings?.ai_title_fix_grammar || t('contextMenu.fixGrammar')}`,
-                      onClick: () =>
-                        handleAiAction(contextMenu.itemId, 'fix_grammar', t('ai.grammarCheck')),
-                    },
-                    {
+                      onClick: () => handleAiAction(contextMenu.itemId, 'fix_grammar', t('ai.grammarFix')),
+                    });
+
+                    opts.push({
                       label: t('contextMenu.delete') || 'Delete',
                       danger: true,
                       onClick: () => handleDelete(contextMenu.itemId),
-                    },
-                  ]
+                    });
+                    
+                    return opts;
+                  })()
                 : [
                     {
                       label: 'Edit',
@@ -1204,8 +1242,6 @@ function App() {
             if (moveToFolderClipId) handleMoveToFolder(moveToFolderClipId, folderId);
           }}
         />
-
-        <Toaster richColors position="bottom-center" theme={effectiveTheme} />
       </div>
     </div>
   );

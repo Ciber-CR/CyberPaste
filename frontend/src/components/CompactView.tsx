@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ClipboardItem as AppClip, FolderItem } from '../types';
-import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical, PanelLeftClose, PanelLeftOpen, PanelTop, Plus } from 'lucide-react';
+import { Search, Maximize2, Clock, Trash2, Folder as FolderIcon, X, Pin, PinOff, Zap, Flame, Star, Leaf, Droplets, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, RotateCcw, MoveHorizontal, MoveVertical, PanelLeftClose, PanelLeftOpen, PanelTop, Plus, FileText, Link, File as LucideFile, Image as ImageIcon } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
@@ -86,7 +86,22 @@ export const CompactView: React.FC<CompactViewProps> = ({
   onLoadMore,
 }) => {
   const { t } = useTranslation();
+  const folderScrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const isVertical = compactFolderLayout === 'vertical';
   
+  // Auto-scroll selected folder into view
+  useEffect(() => {
+    const selectedBtn = folderScrollRef.current?.querySelector('[data-selected="true"]');
+    if (selectedBtn) {
+      selectedBtn.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: isVertical ? 'nearest' : 'center', 
+        inline: isVertical ? 'center' : 'center' 
+      });
+    }
+  }, [selectedFolder, isVertical]);
+
   const getClipImageSrc = (content: string) => {
     if (!content) return '';
     const isAbsolutePath = content.startsWith('/') || /^[A-Za-z]:[\\/]/.test(content);
@@ -113,8 +128,6 @@ export const CompactView: React.FC<CompactViewProps> = ({
     }
   };
 
-  const folderScrollRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to selected clip
   useEffect(() => {
@@ -141,7 +154,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
     }
   };
 
-  const isVertical = compactFolderLayout === 'vertical';
+
 
   const folderPillClass = (_folderId: string | null, isSelected: boolean, isDragTarget: boolean) =>
     cn(
@@ -272,9 +285,30 @@ export const CompactView: React.FC<CompactViewProps> = ({
             className="flex-shrink-0 border-r border-white/10 bg-black/10 overflow-hidden transition-all duration-200"
             style={{ width: sidebarWidth }}
           >
-            <div className="w-[140px] h-full flex flex-col gap-1 overflow-y-auto no-scrollbar py-2">
+            <div 
+              ref={folderScrollRef}
+              onWheel={(e) => {
+                // Cycle through folders with mouse wheel
+                const allFolderIds = [null, ...folders.map(f => f.id)];
+                const currentIndex = allFolderIds.indexOf(selectedFolder);
+                
+                if (e.deltaY > 0) {
+                  // Wheel down -> Next folder
+                  if (currentIndex < allFolderIds.length - 1) {
+                    onSelectFolder(allFolderIds[currentIndex + 1]);
+                  }
+                } else if (e.deltaY < 0) {
+                  // Wheel up -> Previous folder
+                  if (currentIndex > 0) {
+                    onSelectFolder(allFolderIds[currentIndex - 1]);
+                  }
+                }
+              }}
+              className="w-[140px] h-full flex flex-col gap-1 overflow-y-auto no-scrollbar py-2"
+            >
               <button
                 onClick={() => onSelectFolder(null)}
+                data-selected={selectedFolder === null}
                 className={cn(
                   "mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center gap-1.5 border",
                   selectedFolder === null && !dragTargetFolderId
@@ -297,6 +331,7 @@ export const CompactView: React.FC<CompactViewProps> = ({
                   <button
                     key={folder.id}
                     onClick={() => onSelectFolder(folder.id)}
+                    data-selected={isSelected}
                     onContextMenu={(e) => onFolderContextMenu?.(e, folder.id)}
                     className={cn(
                       "mx-1.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex flex-row items-center gap-1.5 border",
@@ -404,11 +439,28 @@ export const CompactView: React.FC<CompactViewProps> = ({
 
             <div
               ref={folderScrollRef}
-              onWheel={handleFolderWheel}
+              onWheel={(e) => {
+                // Cycle through folders with mouse wheel
+                const allFolderIds = [null, ...folders.map(f => f.id)];
+                const currentIndex = allFolderIds.indexOf(selectedFolder);
+                
+                if (e.deltaY > 0) {
+                  // Wheel down -> Next folder
+                  if (currentIndex < allFolderIds.length - 1) {
+                    onSelectFolder(allFolderIds[currentIndex + 1]);
+                  }
+                } else if (e.deltaY < 0) {
+                  // Wheel up -> Previous folder
+                  if (currentIndex > 0) {
+                    onSelectFolder(allFolderIds[currentIndex - 1]);
+                  }
+                }
+              }}
               className="flex gap-1 overflow-x-auto no-scrollbar pb-1 scroll-smooth"
             >
               <button
                 onClick={() => onSelectFolder(null)}
+                data-selected={selectedFolder === null}
                 className={folderPillClass(null, selectedFolder === null, dragTargetFolderId === null)}
                 onMouseEnter={() => isDragging && onDragHover(null)}
                 onMouseLeave={onDragLeave}
@@ -418,19 +470,21 @@ export const CompactView: React.FC<CompactViewProps> = ({
                 <span className={cn("opacity-40 text-[9px]", selectedFolder === null && "opacity-80")}>({totalClipCount})</span>
               </button>
               {folders.map(folder => {
+                const isSelected = selectedFolder === folder.id;
                 const Icon = IconMap[folder.icon || 'Folder'] || FolderIcon;
                 return (
                   <button
                     key={folder.id}
                     onClick={() => onSelectFolder(folder.id)}
+                    data-selected={isSelected}
                     onContextMenu={(e) => onFolderContextMenu?.(e, folder.id)}
-                    className={folderPillClassNamed(folder.id, selectedFolder === folder.id, dragTargetFolderId === folder.id, folder.color)}
+                    className={folderPillClassNamed(folder.id, isSelected, dragTargetFolderId === folder.id, folder.color)}
                     onMouseEnter={() => isDragging && onDragHover(folder.id)}
                     onMouseLeave={onDragLeave}
                   >
-                    <Icon size={10} style={{ color: folder.color || undefined }} className={selectedFolder === folder.id ? "text-primary" : "text-white/30"} />
+                    <Icon size={10} style={{ color: folder.color || undefined }} className={isSelected ? "text-primary" : "text-white/30"} />
                     {folder.name}
-                    <span className={cn("opacity-40 text-[9px]", selectedFolder === folder.id && "opacity-80")}>({folder.item_count || 0})</span>
+                    <span className={cn("opacity-40 text-[9px]", isSelected && "opacity-80")}>({folder.item_count || 0})</span>
                   </button>
                 );
               })}
@@ -551,7 +605,6 @@ const ClipRow: React.FC<{
                   <span className="text-[10px] opacity-40">IMG</span>
                 )}
               </div>
-              <span className="text-xs font-medium text-cyan-400/80 truncate">{t('common.image')}</span>
               {(() => {
                 try {
                   const parsed = clip.metadata ? JSON.parse(clip.metadata) as { size_bytes?: number; width?: number; height?: number } : null;
@@ -594,10 +647,17 @@ const ClipRow: React.FC<{
         </div>
 
         <div className="flex-shrink-0 flex items-center gap-3 pr-2">
-          <span className="text-[10px] opacity-30 flex items-center gap-1 whitespace-nowrap">
+          <span className="text-[10px] opacity-40 flex items-center gap-2 whitespace-nowrap">
             {index === 0 && !selectedFolder && (
               <span className="text-[8px] font-bold tracking-widest text-cyan-400/90 uppercase">Latest</span>
             )}
+            {(() => {
+              const TypeIcon = clip.clip_type === 'image' ? ImageIcon : 
+                              clip.clip_type === 'html' || clip.clip_type === 'rtf' ? Code :
+                              clip.clip_type === 'url' ? Link :
+                              clip.clip_type === 'file' ? LucideFile : FileText;
+              return <TypeIcon size={11} className="opacity-70 group-hover:opacity-100 transition-opacity text-cyan-400/90 shadow-[0_0_8px_rgba(34,211,238,0.4)]" />;
+            })()}
             {clip.source_icon && (
               <img
                 src={`data:image/png;base64,${clip.source_icon}`}
@@ -606,7 +666,7 @@ const ClipRow: React.FC<{
                 className="h-3.5 w-3.5 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
               />
             )}
-            <Clock size={10} className={selectedFolder === null ? "text-indigo-400" : "text-current"} />
+            <Clock size={10} className="text-current" />
             {formatDistanceToNow(new Date(clip.created_at), { addSuffix: false })}
           </span>
 

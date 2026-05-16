@@ -15,6 +15,11 @@
   animation: subtle-gradient 8s ease infinite;
 }
 
+@keyframes toast-shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;
@@ -77,6 +82,13 @@
   body,
   #root {
     @apply m-0 h-full w-full overflow-hidden bg-[#0a0a0b] p-0;
+  }
+
+  /* Toast window needs fully transparent background */
+  html.toast-window,
+  html.toast-window body,
+  html.toast-window #root {
+    background: transparent !important;
   }
 
   body {

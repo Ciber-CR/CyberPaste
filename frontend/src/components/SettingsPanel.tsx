@@ -24,6 +24,7 @@ import {
   Command,
   Lock,
   Database,
+  Bell,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
@@ -31,12 +32,12 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import { FlaskConical } from 'lucide-react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, availableMonitors } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { toast } from 'sonner';
+import { systemToast as toast } from '../utils/toast';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Select } from './ui/Select';
 import { useShortcutRecorder } from 'use-shortcut-recorder';
@@ -47,7 +48,7 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type Tab = 'general' | 'ai' | 'folders' | 'about';
+type Tab = 'general' | 'ai' | 'folders' | 'notifications' | 'about';
 
 function PromptEditor({
   label,
@@ -118,9 +119,16 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
   const [recordingTarget, setRecordingTarget] = useState<'hotkey' | 'view_mode_hotkey' | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [appVersion, setAppVersion] = useState('');
+  const [monitorList, setMonitorList] = useState<{ name: string; index: number }[]>([]);
 
   useEffect(() => {
     getVersion().then(setAppVersion);
+    availableMonitors().then((monitors: any[]) => {
+      setMonitorList(monitors.map((m: any, i: number) => ({
+        name: m.name || `Monitor ${i + 1}`,
+        index: i + 1,
+      })));
+    }).catch(console.error);
   }, []);
 
   const openDataDir = async () => {
@@ -539,6 +547,18 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                 <FolderIcon size={18} />
                 {t('settings.folders')}
               </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={clsx(
+                  'flex items-center gap-3 rounded-md px-4 py-2.5 text-base font-medium transition-all duration-200',
+                  activeTab === 'notifications'
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                )}
+              >
+                <Bell size={18} />
+                {t('settings.toasts')}
+              </button>
               <div className="mt-auto pt-4 border-t border-border/50">
                 <button
                   onClick={() => setActiveTab('about')}
@@ -550,7 +570,7 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                   )}
                 >
                   <Info size={18} />
-                  About
+                  {t('settings.about')}
                 </button>
               </div>
             </div>
@@ -847,6 +867,21 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           </button>
                         </div>
                       )}
+                    </div>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.compactViewPosition')}</span>
+                        <p className="text-xs text-muted-foreground">{t('settings.compactViewPositionDesc')}</p>
+                      </label>
+                      <Select
+                        value={settings.compact_view_position_mode || 'auto'}
+                        onChange={(val) => updateSetting('compact_view_position_mode', val)}
+                        options={[
+                          { value: 'auto', label: t('settings.positionAuto') },
+                          { value: 'cursor', label: t('settings.positionCursor') },
+                          { value: 'caret', label: t('settings.positionCaret') },
+                        ]}
+                      />
                     </div>
                   </section>
 
@@ -1361,6 +1396,121 @@ export function SettingsPanel({ settings: initialSettings, onClose }: SettingsPa
                           </div>
                         ))
                     )}
+                  </div>
+                </section>
+              )}
+
+              {/* --- NOTIFICATIONS TAB --- */}
+              {activeTab === 'notifications' && (
+                <section className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    {t('settings.toasts')}
+                  </h3>
+                  
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
+                    <div>
+                      <span className="text-base font-semibold">{t('settings.enableToasts')}</span>
+                      <p className="text-sm text-muted-foreground/80">{t('settings.enableToastsDesc')}</p>
+                    </div>
+                    <button
+                      onClick={() => updateSetting('toast_enabled', !(settings.toast_enabled ?? true))}
+                      className={`h-6 w-11 rounded-full transition-colors ${(settings.toast_enabled ?? true) ? 'bg-primary' : 'bg-accent'}`}
+                    >
+                      <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${(settings.toast_enabled ?? true) ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3">
+                    <div>
+                      <span className="text-base font-semibold">{t('settings.showActionMessages')}</span>
+                      <p className="text-sm text-muted-foreground/80">{t('settings.showActionMessagesDesc')}</p>
+                    </div>
+                    <button
+                      onClick={() => updateSetting('show_action_messages', !settings.show_action_messages)}
+                      className={`h-6 w-11 rounded-full transition-colors ${settings.show_action_messages ? 'bg-primary' : 'bg-accent'}`}
+                    >
+                      <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.show_action_messages ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.toastMonitor')}</span>
+                      </label>
+                      <Select
+                        value={settings.toast_monitor || 'primary'}
+                        onChange={(val) => updateSetting('toast_monitor', val)}
+                        options={[
+                          { value: 'primary', label: t('settings.toastMonitorPrimary') },
+                          ...monitorList.map(m => ({
+                            value: m.index.toString(),
+                            label: m.name,
+                          })),
+                        ]}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.toastStyle')}</span>
+                      </label>
+                      <Select
+                        value={settings.toast_style || 'cyber'}
+                        onChange={(val) => updateSetting('toast_style', val)}
+                        options={[
+                          { value: 'cyber', label: t('settings.toastStyleCyber') },
+                          { value: 'minimal', label: t('settings.toastStyleMinimal') },
+                          { value: 'dark', label: t('settings.toastStyleDark') },
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="text-base font-medium">{t('settings.toastPosition')}</span>
+                      </label>
+                      <Select
+                        value={settings.toast_position || 'bottom-right'}
+                        onChange={(val) => updateSetting('toast_position', val)}
+                        options={[
+                          { value: 'bottom-right', label: t('settings.posBottomRight') },
+                          { value: 'bottom-left', label: t('settings.posBottomLeft') },
+                          { value: 'bottom-center', label: t('settings.posBottomCenter') },
+                          { value: 'top-right', label: t('settings.posTopRight') },
+                          { value: 'top-left', label: t('settings.posTopLeft') },
+                          { value: 'center-right', label: t('settings.posCenterRight') },
+                          { value: 'center-left', label: t('settings.posCenterLeft') },
+                        ]}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                    <label className="block">
+                      <span className="text-base font-medium">{t('settings.toastDuration')}</span>
+                    </label>
+                    <Select
+                      value={(settings.toast_duration || 3000).toString()}
+                      onChange={(val) => updateSetting('toast_duration', parseInt(val))}
+                      options={[
+                        { value: '1500', label: t('settings.durationShort') },
+                        { value: '3000', label: t('settings.durationNormal') },
+                        { value: '5000', label: t('settings.durationLong') },
+                        { value: '8000', label: t('settings.durationVeryLong') },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                  <div className="pt-4">
+                    <button 
+                      onClick={() => {
+                        import('../utils/toast').then(m => m.systemToast.success(t('settings.testToastMsg')));
+                      }}
+                      className="btn btn-primary w-full"
+                    >
+                      {t('settings.testToast')}
+                    </button>
                   </div>
                 </section>
               )}

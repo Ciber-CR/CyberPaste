@@ -42,6 +42,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'chrome.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-2',
@@ -53,6 +54,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Figma.exe',
       source_icon: null,
       metadata: JSON.stringify({ size_bytes: 184320 }),
+      image_path: null,
     },
     {
       id: 'demo-3',
@@ -64,6 +66,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Figma.exe',
       source_icon: null,
       metadata: JSON.stringify({ size_bytes: 201480 }),
+      image_path: null,
     },
     {
       id: 'demo-4',
@@ -75,6 +78,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'WindowsTerminal.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-5',
@@ -86,6 +90,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Code.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-6',
@@ -97,6 +102,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Code.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-9',
@@ -109,6 +115,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'chrome.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-10',
@@ -120,6 +127,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'WindowsTerminal.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
 
     {
@@ -133,6 +141,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'OUTLOOK.EXE',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-13',
@@ -145,6 +154,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'WeChat.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
 
     {
@@ -157,6 +167,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Figma.exe',
       source_icon: null,
       metadata: JSON.stringify({ size_bytes: 156800 }),
+      image_path: null,
     },
     {
       id: 'demo-20',
@@ -168,6 +179,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Snipaste.exe',
       source_icon: null,
       metadata: JSON.stringify({ size_bytes: 348160 }),
+      image_path: null,
     },
     {
       id: 'demo-14',
@@ -179,6 +191,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Obsidian.exe',
       source_icon: null,
       metadata: null,
+      image_path: null,
     },
     {
       id: 'demo-16',
@@ -190,6 +203,7 @@ export function generateDemoClips(): ClipboardItem[] {
       source_app: 'Photoshop.exe',
       source_icon: null,
       metadata: JSON.stringify({ size_bytes: 92160 }),
+      image_path: null,
     },
   ];
 }

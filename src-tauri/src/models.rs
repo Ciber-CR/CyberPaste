@@ -50,6 +50,17 @@ pub struct AppSettings {
     pub compact_window_width: f64,
     pub compact_window_height: f64,
     pub ignored_apps: HashSet<String>,
+    pub toast_position: String,
+    pub toast_duration: i64,
+    pub toast_style: String,
+    pub toast_enabled: bool,
+    pub toast_monitor: String,
+    pub compact_view_position_mode: String, // "cursor" or "caret"
+    pub viewer_window_width: f64,
+    pub viewer_window_height: f64,
+    pub viewer_window_x: Option<i32>,
+    pub viewer_window_y: Option<i32>,
+    pub show_action_messages: bool,
 }
 
 impl Default for AppSettings {
@@ -99,6 +110,17 @@ impl Default for AppSettings {
             compact_window_width: crate::constants::COMPACT_WIDTH,
             compact_window_height: crate::constants::COMPACT_HEIGHT,
             ignored_apps: HashSet::new(),
+            toast_position: "bottom-center".to_string(),
+            toast_duration: 3000,
+            toast_style: "cyber".to_string(),
+            toast_enabled: true,
+            toast_monitor: "primary".to_string(),
+            compact_view_position_mode: "auto".to_string(),
+            viewer_window_width: 800.0,
+            viewer_window_height: 600.0,
+            viewer_window_x: None,
+            viewer_window_y: None,
+            show_action_messages: true,
         }
     }
 }
@@ -198,11 +220,13 @@ pub struct ClipboardItem {
     pub clip_type: String,
     pub content: String,
     pub preview: String,
+    pub content_length: usize,
     pub folder_id: Option<String>,
     pub created_at: String,
     pub source_app: Option<String>,
     pub source_icon: Option<String>,
     pub metadata: Option<String>,
+    pub image_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

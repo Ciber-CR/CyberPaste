@@ -68,8 +68,17 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   isDragging,
   style,
 }) => {
+  const foldersRef = React.useRef<HTMLDivElement>(null);
 
   const currentFolderName = selectedFolder ? (folders.find(f => f.id === selectedFolder)?.name || 'Folder') : 'Clipboard';
+
+  // Auto-scroll selected folder into view
+  React.useEffect(() => {
+    const selectedBtn = foldersRef.current?.querySelector('[data-selected="true"]');
+    if (selectedBtn) {
+      selectedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [selectedFolder]);
 
   return (
     <div
@@ -140,18 +149,32 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         <div className="flex-1 relative h-full flex items-center min-w-0">
         {/* Folders List - Cybernetic Transition */}
         <div 
+          ref={foldersRef}
           className={clsx(
             "no-scrollbar flex flex-1 items-center gap-2 overflow-x-auto transition-all duration-500 ease-in-out",
             showSearch ? "opacity-0 scale-95 pointer-events-none invisible" : "opacity-100 scale-100 visible"
           )}
           onWheel={(e) => {
-              e.currentTarget.scrollLeft += e.deltaY;
+            // Cycle through folders with mouse wheel
+            const allFolderIds = [null, ...folders.map(f => f.id)];
+            const currentIndex = allFolderIds.indexOf(selectedFolder);
+            
+            if (e.deltaY > 0) {
+              // Wheel down -> Next folder
+              const nextIndex = (currentIndex + 1) % allFolderIds.length;
+              onSelectFolder(allFolderIds[nextIndex]);
+            } else if (e.deltaY < 0) {
+              // Wheel up -> Previous folder
+              const prevIndex = (currentIndex - 1 + allFolderIds.length) % allFolderIds.length;
+              onSelectFolder(allFolderIds[prevIndex]);
+            }
           }}
         >
           <button
             onClick={() => onSelectFolder(null)}
             onMouseEnter={() => isDragging && onDragHover(null)}
             onMouseLeave={onDragLeave}
+            data-selected={selectedFolder === null}
             className={clsx(
               'flex h-8 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1 text-sm font-bold transition-all relative group shrink-0',
               selectedFolder === null && !dragTargetFolderId
@@ -188,6 +211,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                 onContextMenu={(e) => onFolderContextMenu(e, folder.id)}
                 onMouseEnter={() => isDragging && onDragHover(folder.id)}
                 onMouseLeave={onDragLeave}
+                data-selected={isSelected}
                 className={clsx(
                   'flex h-8 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1 text-sm font-bold transition-all shrink-0',
                   isSelected && !isDragTarget

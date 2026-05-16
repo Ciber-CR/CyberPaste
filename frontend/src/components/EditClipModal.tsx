@@ -31,7 +31,7 @@ export const EditClipModal: React.FC<EditClipModalProps> = ({ isOpen, content, o
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30 flex-shrink-0">
           <div className="flex items-center gap-2 text-primary">
             <Edit3 size={18} />
-            <h3 className="text-sm font-bold tracking-tight uppercase">Edit Clip</h3>
+            <h3 className="text-sm font-bold tracking-tight uppercase">{t('settings.editClip')}</h3>
           </div>
           <button 
             onClick={onClose}

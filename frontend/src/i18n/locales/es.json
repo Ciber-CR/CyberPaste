@@ -42,6 +42,7 @@
     "folderNamePlaceholder": "Nombre de la carpeta"
   },
   "contextMenu": {
+    "view": "Ver",
     "copy": "Copiar",
     "paste": "Pegar",
     "delete": "Eliminar",
@@ -83,6 +84,11 @@
     "compactSidebarCollapsedDesc": "Ocultar barra lateral para maximizar el espacio de clips",
     "compactFolderLayoutHorizontal": "Horizontal",
     "compactFolderLayoutVertical": "Vertical",
+    "compactViewPosition": "Posición de Vista Compacta",
+    "compactViewPositionDesc": "Dónde aparece la ventana compacta al abrirla con el atajo global",
+    "positionAuto": "Automático (Inteligente)",
+    "positionCursor": "Cursor del Ratón",
+    "positionCaret": "Cursor de Texto (Caret)",
     "clipboardSound": "Sonido del Portapapeles",
     "clipboardSoundDesc": "Reproducir un sonido cuando se captura un nuevo clip",
     "windowEffect": "Efecto de Ventana",
@@ -141,7 +147,34 @@
     "updateAvailable": "¡Actualización disponible! Versión {{version}}",
     "noUpdates": "Estás en la última versión",
     "updateError": "Error al buscar actualizaciones",
-    "copyContent": "Copiar contenido"
+    "copyContent": "Copiar contenido",
+    "showActionMessages": "Mensajes de Acción",
+    "showActionMessagesDesc": "Muestra mensajes como 'Abriendo Visor...' o 'Procesando...'",
+    "toasts": "Toasts / Notificaciones",
+    "enableToasts": "Habilitar Notificaciones",
+    "enableToastsDesc": "Mostrar notificaciones (toasts) en el escritorio.",
+    "toastMonitor": "Monitor",
+    "toastMonitorPrimary": "Monitor Principal",
+    "toastStyle": "Estilo Visual",
+    "toastStyleCyber": "Cyber-Neon (CyberSnap)",
+    "toastStyleMinimal": "Minimalista",
+    "toastStyleDark": "Oscuro",
+    "toastPosition": "Posición",
+    "posBottomRight": "Inferior derecha",
+    "posBottomLeft": "Inferior izquierda",
+    "posBottomCenter": "Inferior centro",
+    "posTopRight": "Superior derecha",
+    "posTopLeft": "Superior izquierda",
+    "posCenterRight": "Centro derecha",
+    "posCenterLeft": "Centro izquierda",
+    "toastDuration": "Duración (ms)",
+    "durationShort": "Corta (1.5s)",
+    "durationNormal": "Normal (3s)",
+    "durationLong": "Larga (5s)",
+    "durationVeryLong": "Muy Larga (8s)",
+    "testToast": "Probar Notificación",
+    "testToastMsg": "¡Así se verán tus notificaciones!",
+    "editClip": "Editar Clip"
   },
   "ai": {
     "processing": "Procesando con IA...",
@@ -159,5 +192,12 @@
     "copyFailed": "Error al copiar",
     "clipMoved": "Clip movido correctamente",
     "clipMoveFailed": "Error al mover el clip"
+  },
+  "viewer": {
+    "fitToWindow": "Ajustar a la Ventana",
+    "originalSize": "Tamaño Original",
+    "edit": "Editar",
+    "copy": "Copiar al Portapapeles",
+    "close": "Cerrar"
   }
 }

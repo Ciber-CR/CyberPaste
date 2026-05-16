@@ -1,6 +1,6 @@
 import { X, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import { systemToast as toast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 
 interface AiResultDialogProps {

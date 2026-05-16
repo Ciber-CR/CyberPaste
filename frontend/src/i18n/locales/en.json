@@ -42,6 +42,7 @@
     "folderNamePlaceholder": "Folder name"
   },
   "contextMenu": {
+    "view": "View",
     "copy": "Copy",
     "paste": "Paste",
     "delete": "Delete",
@@ -83,6 +84,11 @@
     "compactSidebarCollapsedDesc": "Hide sidebar to maximize clip list space",
     "compactFolderLayoutHorizontal": "Horizontal",
     "compactFolderLayoutVertical": "Vertical",
+    "compactViewPosition": "Compact View Position",
+    "compactViewPositionDesc": "Where the compact window appears when opened via hotkey",
+    "positionAuto": "Automatic (Smart)",
+    "positionCursor": "Mouse Cursor",
+    "positionCaret": "Text Caret (Typing)",
     "clipboardSound": "Clipboard Sound",
     "clipboardSoundDesc": "Play a sound when a new clip is captured",
     "windowEffect": "Window Effect",
@@ -144,7 +150,34 @@
     "updateAvailable": "Update available! Version {{version}}",
     "noUpdates": "You're on the latest version",
     "updateError": "Failed to check for updates",
-    "copyContent": "Copy content"
+    "copyContent": "Copy content",
+    "showActionMessages": "Show Action Feedback",
+    "showActionMessagesDesc": "Display feedback messages like 'Opening Viewer...' or 'Processing...'",
+    "toasts": "Toasts / Notifications",
+    "enableToasts": "Enable Notifications",
+    "enableToastsDesc": "Show notifications (toasts) on desktop.",
+    "toastMonitor": "Monitor",
+    "toastMonitorPrimary": "Primary Monitor",
+    "toastStyle": "Visual Style",
+    "toastStyleCyber": "Cyber-Neon (CyberSnap)",
+    "toastStyleMinimal": "Minimalist",
+    "toastStyleDark": "Dark",
+    "toastPosition": "Position",
+    "posBottomRight": "Bottom Right",
+    "posBottomLeft": "Bottom Left",
+    "posBottomCenter": "Bottom Center",
+    "posTopRight": "Top Right",
+    "posTopLeft": "Top Left",
+    "posCenterRight": "Center Right",
+    "posCenterLeft": "Center Left",
+    "toastDuration": "Duration (ms)",
+    "durationShort": "Short (1.5s)",
+    "durationNormal": "Normal (3s)",
+    "durationLong": "Long (5s)",
+    "durationVeryLong": "Very Long (8s)",
+    "testToast": "Test Notification",
+    "testToastMsg": "This is how your notifications will look!",
+    "editClip": "Edit Clip"
   },
   "ai": {
     "processing": "Processing with AI...",
@@ -162,5 +195,12 @@
     "copyFailed": "Failed to copy",
     "clipMoved": "Clip moved successfully",
     "clipMoveFailed": "Failed to move clip"
+  },
+  "viewer": {
+    "fitToWindow": "Fit to Window",
+    "originalSize": "Original Size",
+    "edit": "Edit",
+    "copy": "Copy to Clipboard",
+    "close": "Close"
   }
 }

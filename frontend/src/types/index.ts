@@ -3,11 +3,13 @@ export interface ClipboardItem {
   clip_type: string;
   content: string;
   preview: string;
+  content_length: number;
   folder_id: string | null;
   created_at: string;
   source_app: string | null;
   source_icon: string | null;
   metadata: string | null;
+  image_path: string | null;
   sort_order?: number;
 }
 
@@ -57,6 +59,17 @@ export interface Settings {
   ai_title_translate?: string;
   ai_title_explain_code?: string;
   ai_title_fix_grammar?: string;
+  toast_position?: string;
+  toast_duration?: number;
+  toast_style?: string;
+  toast_enabled?: boolean;
+  toast_monitor?: string;
+  compact_view_position_mode?: 'cursor' | 'caret' | 'auto';
+  viewer_window_width?: number;
+  viewer_window_height?: number;
+  viewer_window_x?: number | null;
+  viewer_window_y?: number | null;
+  show_action_messages?: boolean;
 }
 
 export type ClipType = 'text' | 'image' | 'html' | 'rtf' | 'file' | 'url';

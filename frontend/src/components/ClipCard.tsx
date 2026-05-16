@@ -4,7 +4,7 @@ import { useMemo, memo, useState, forwardRef } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { LAYOUT, PREVIEW_CHAR_LIMIT } from '../constants';
-import { Copy, Check, MoveHorizontal, MoveVertical } from 'lucide-react';
+import { Copy, Check, MoveHorizontal, MoveVertical, FileText, Code, Link, File as LucideFile, Image as ImageIcon } from 'lucide-react';
 import { useMotionValue, useMotionTemplate, motion } from 'framer-motion';
 
 interface ClipCardProps {
@@ -110,13 +110,13 @@ export const ClipCard = memo(
       } else if (clip.clip_type === 'html' || clip.clip_type === 'rtf') {
         return (
           <pre className="whitespace-pre-wrap break-all font-mono text-[13px] leading-tight text-foreground/80">
-            <span>{clip.preview.substring(0, PREVIEW_CHAR_LIMIT) || clip.content.substring(0, PREVIEW_CHAR_LIMIT)}</span>
+            <span>{(clip.content || clip.preview).substring(0, PREVIEW_CHAR_LIMIT)}</span>
           </pre>
         );
       } else {
         return (
           <pre className="whitespace-pre-wrap break-all font-mono text-[13px] leading-tight text-foreground">
-            <span>{clip.content.substring(0, PREVIEW_CHAR_LIMIT)}</span>
+            <span>{(clip.content || clip.preview).substring(0, PREVIEW_CHAR_LIMIT)}</span>
           </pre>
         );
       }
@@ -301,7 +301,7 @@ export const ClipCard = memo(
             <span className="text-[11px] font-medium text-muted-foreground/50">
               {clip.clip_type === 'image'
                 ? (
-                  <div className="flex w-full items-center justify-between">
+                  <div className="flex w-full items-center justify-between pr-6">
                     <div className="flex items-center gap-1.5">
                       <span className="flex items-center gap-0.5">
                         <MoveHorizontal size={10} className="text-muted-foreground/60" />
@@ -312,17 +312,24 @@ export const ClipCard = memo(
                         <MoveVertical size={10} className="text-muted-foreground/60" />
                         <span>{imageMetadata.height}</span>
                       </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="opacity-40">•</span>
+                      <span className="opacity-40 ml-1">•</span>
                       <span>{imageMetadata.sizeKb}KB</span>
                     </div>
                   </div>
                 )
                 : clip.clip_type === 'file'
-                  ? `${filePaths.length} file${filePaths.length !== 1 ? 's' : ''}`
-                  : t('clipList.textLength', { count: clip.content.length })}
+                  ? `${clip.preview || 'File'}`
+                  : t('clipList.textLength', { count: clip.content_length })}
             </span>
+            <div className="absolute bottom-1.5 right-3 flex items-center opacity-50 group-hover:opacity-100 transition-opacity text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.3)]">
+              {(() => {
+                const TypeIcon = clip.clip_type === 'image' ? ImageIcon : 
+                                clip.clip_type === 'html' || clip.clip_type === 'rtf' ? Code :
+                                clip.clip_type === 'url' ? Link :
+                                clip.clip_type === 'file' ? LucideFile : FileText;
+                return <TypeIcon size={12} />;
+              })()}
+            </div>
           </div>
         </div>
       </div>

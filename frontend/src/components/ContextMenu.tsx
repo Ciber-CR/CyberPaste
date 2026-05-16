@@ -77,6 +77,14 @@ export function ContextMenu({ x, y, options, onClose }: ContextMenuProps) {
                   onClose();
                 }
               }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!option.disabled) {
+                  option.onClick();
+                  onClose();
+                }
+              }}
               className={clsx(
                 'flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-all duration-100',
                 option.disabled ? 'opacity-40 pointer-events-none' : '',

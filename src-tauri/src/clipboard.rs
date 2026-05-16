@@ -420,7 +420,8 @@ async fn process_clipboard_change(
                     content = ?,
                     text_preview = ?,
                     metadata = ?,
-                    is_thumbnail = 0
+                    is_thumbnail = 0,
+                    sort_order = (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM clips)
                 WHERE uuid = ?
                 "#,
             )
@@ -458,7 +459,7 @@ async fn process_clipboard_change(
                 }
             }
         } else {
-            let _ = sqlx::query(r#"UPDATE clips SET created_at = CURRENT_TIMESTAMP, is_deleted = 0, source_app = ?, source_icon = ? WHERE uuid = ?"#)
+            let _ = sqlx::query(r#"UPDATE clips SET created_at = CURRENT_TIMESTAMP, sort_order = (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM clips), is_deleted = 0, source_app = ?, source_icon = ? WHERE uuid = ?"#)
                 .bind(&source_app)
                 .bind(&source_icon)
                 .bind(&existing_id)
@@ -553,6 +554,36 @@ async fn process_clipboard_change(
         let settings = manager.get();
         if settings.clipboard_sound_enabled && !settings.clipboard_sound_path.is_empty() {
             let _ = crate::commands::play_clipboard_sound(settings.clipboard_sound_path.clone());
+        }
+        if settings.toast_enabled {
+            let msg = if clip_preview.is_empty() {
+                "".to_string()
+            } else if clip_preview.len() > 50 {
+                format!("{}...", &clip_preview.chars().take(47).collect::<String>())
+            } else {
+                clip_preview.clone()
+            };
+            // Generate tiny thumbnail for image toasts
+            let image_b64 = if clip_type == "image" {
+                full_image_content.as_ref().and_then(|bytes| {
+                    image::load_from_memory(bytes).ok().map(|img| {
+                        let thumb = img.thumbnail(48, 48);
+                        let mut buf = Vec::new();
+                        let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+                        use image::ImageEncoder;
+                        encoder.write_image(
+                            thumb.to_rgba8().as_raw(),
+                            thumb.width(),
+                            thumb.height(),
+                            image::ColorType::Rgba8,
+                        ).ok();
+                        BASE64.encode(&buf)
+                    })
+                })
+            } else {
+                None
+            };
+            let _ = crate::commands::show_toast(app.clone(), msg, "info".to_string(), Some(clip_type.to_string()), image_b64).await;
         }
     }
 

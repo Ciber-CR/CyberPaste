@@ -3,15 +3,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Settings } from '../types';
 import { SettingsPanel } from '../components/SettingsPanel';
-import { useTheme } from '../hooks/useTheme';
 import { useLanguage } from '../hooks/useLanguage';
 
-import { Toaster } from 'sonner';
 
 export function SettingsWindow() {
   const [settings, setSettings] = useState<Settings | null>(null);
 
-  const effectiveTheme = useTheme(settings?.theme || 'system');
   useLanguage(settings?.language);
 
   useEffect(() => {
@@ -35,7 +32,6 @@ export function SettingsWindow() {
     <div className="h-screen">
       <div className="h-full overflow-hidden bg-background text-foreground">
         <SettingsPanel settings={settings} onClose={handleClose} />
-        <Toaster richColors position="bottom-center" theme={effectiveTheme} />
       </div>
     </div>
   );

@@ -268,9 +268,25 @@ pub fn run_app() {
                             position_window_at_bottom(&win);
                         }
                     } else if event.id.as_ref() == "settings" {
-                        if let Some(win) = app.get_webview_window("main") {
-                            position_window_at_bottom(&win);
-                            let _ = win.emit("open-settings", ());
+                        // Open settings window directly without showing the main window
+                        if let Some(settings_win) = app.get_webview_window("settings") {
+                            let _ = settings_win.unminimize();
+                            let _ = settings_win.show();
+                            let _ = settings_win.set_focus();
+                        } else {
+                            let _ = tauri::WebviewWindowBuilder::new(
+                                app,
+                                "settings",
+                                tauri::WebviewUrl::App("index.html?window=settings".into()),
+                            )
+                            .title("Settings")
+                            .inner_size(800.0, 700.0)
+                            .resizable(true)
+                            .maximizable(true)
+                            .decorations(false)
+                            .transparent(false)
+                            .center()
+                            .build();
                         }
                     }
                 })
@@ -404,7 +420,11 @@ pub fn run_app() {
             commands::reset_window_size,
             commands::center_window,
             commands::play_clipboard_sound,
-            commands::simulate_ctrl_v
+            commands::simulate_ctrl_v,
+            commands::show_toast,
+            commands::hide_toast,
+            commands::set_toast_position,
+            commands::open_image_viewer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -431,17 +451,63 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
     
     std::thread::spawn(move || {
         let _guard = AnimationGuard;
-        let (side_margin, bottom_margin, float_above_taskbar, view_mode, saved_width, saved_height) = {
+        let (side_margin, bottom_margin, float_above_taskbar, view_mode, saved_width, saved_height, compact_pos_mode) = {
             let manager = window.state::<Arc<crate::settings_manager::SettingsManager>>();
             let s = manager.get();
             let is_mica = s.mica_effect != "clear";
             let no_corners = !s.round_corners;
             let side = if is_mica && no_corners { 0.0 } else { constants::WINDOW_MARGIN };
             let bottom = if is_mica && no_corners { 0.0 } else { constants::WINDOW_MARGIN };
-            (side, bottom, s.float_above_taskbar, s.view_mode, s.window_width, s.window_height)
+            (side, bottom, s.float_above_taskbar, s.view_mode, s.window_width, s.window_height, s.compact_view_position_mode.clone())
         };
 
-        if let Some(monitor) = get_monitor_at_cursor(&window) {
+        let (target_pos, monitor) = {
+            use windows::Win32::Foundation::POINT;
+            use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetGUIThreadInfo, GUITHREADINFO, GetForegroundWindow, GetWindowThreadProcessId};
+            use windows::Win32::Graphics::Gdi::ClientToScreen;
+            
+            let mut point = POINT { x: 0, y: 0 };
+            let mut found = false;
+
+            if view_mode == "compact" {
+                if compact_pos_mode == "caret" || compact_pos_mode == "auto" {
+                    let mut info = GUITHREADINFO::default();
+                    info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+                    let hwnd = unsafe { GetForegroundWindow() };
+                    let thread_id = unsafe { GetWindowThreadProcessId(hwnd, None) };
+                    
+                    if unsafe { GetGUIThreadInfo(thread_id, &mut info).is_ok() } && !info.hwndCaret.is_invalid() {
+                        let mut caret_pt = POINT { x: info.rcCaret.left, y: info.rcCaret.bottom };
+                        if unsafe { ClientToScreen(info.hwndCaret, &mut caret_pt).as_bool() } {
+                            point = caret_pt;
+                            found = true;
+                        }
+                    }
+                }
+            }
+
+            if !found {
+                if unsafe { GetCursorPos(&mut point).is_ok() } {
+                    found = true;
+                }
+            }
+
+            if found {
+                (point, get_monitor_at_point(&window, point))
+            } else {
+                let mon = window.primary_monitor().ok().flatten().or_else(|| window.current_monitor().ok().flatten());
+                let pt = if let Some(ref m) = mon {
+                    let pos = m.position();
+                    let size = m.size();
+                    POINT { x: pos.x + (size.width / 2) as i32, y: pos.y + (size.height / 2) as i32 }
+                } else {
+                    POINT { x: 0, y: 0 }
+                };
+                (pt, mon)
+            }
+        };
+
+        if let Some(monitor) = monitor {
             let scale_factor = monitor.scale_factor();
             let monitor_pos = monitor.position();
             let monitor_size = monitor.size();
@@ -456,18 +522,9 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
                 let window_height_px = (logical_h * scale_factor) as u32;
                 let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: window_width_px, height: window_height_px }));
 
-                let cursor_pos = {
-                    use windows::Win32::Foundation::POINT;
-                    use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
-                    let mut point = POINT { x: 0, y: 0 };
-                    if unsafe { GetCursorPos(&mut point).is_ok() } { point } else {
-                        POINT { x: monitor_pos.x + (monitor_size.width / 2) as i32, y: monitor_pos.y + (monitor_size.height / 2) as i32 }
-                    }
-                };
-
-                let target_x = (cursor_pos.x - (window_width_px / 2) as i32)
+                let target_x = (target_pos.x - (window_width_px / 2) as i32)
                     .clamp(monitor_pos.x, monitor_pos.x + monitor_size.width as i32 - window_width_px as i32);
-                let target_y = (cursor_pos.y - (window_height_px / 4) as i32)
+                let target_y = (target_pos.y - (window_height_px / 4) as i32)
                     .clamp(monitor_pos.y, monitor_pos.y + monitor_size.height as i32 - window_height_px as i32);
 
                 let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: target_y }));
@@ -553,7 +610,6 @@ pub fn animate_window_show(window: &tauri::WebviewWindow) {
         } else {
             let _ = window.show();
             let _ = window.unminimize();
-            let _ = window.set_focus();
         }
     });
 }
@@ -619,24 +675,28 @@ fn get_data_dir() -> std::path::PathBuf {
     }
 }
 
+pub fn get_monitor_at_point(window: &tauri::WebviewWindow, point: windows::Win32::Foundation::POINT) -> Option<tauri::Monitor> {
+    if let Ok(monitors) = window.available_monitors() {
+        for m in monitors {
+            let pos = m.position();
+            let size = m.size();
+            if point.x >= pos.x && point.x < pos.x + size.width as i32 && point.y >= pos.y && point.y < pos.y + size.height as i32 {
+                return Some(m);
+            }
+        }
+    }
+    window.current_monitor().ok().flatten()
+}
+
 pub fn get_monitor_at_cursor(window: &tauri::WebviewWindow) -> Option<tauri::Monitor> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
     let mut point = POINT { x: 0, y: 0 };
-    let mut found = None;
     if unsafe { GetCursorPos(&mut point).is_ok() } {
-        if let Ok(monitors) = window.available_monitors() {
-            for m in monitors {
-                let pos = m.position();
-                let size = m.size();
-                if point.x >= pos.x && point.x < pos.x + size.width as i32 && point.y >= pos.y && point.y < pos.y + size.height as i32 {
-                    found = Some(m);
-                    break;
-                }
-            }
-        }
+        get_monitor_at_point(window, point)
+    } else {
+        window.current_monitor().ok().flatten()
     }
-    found.or_else(|| window.current_monitor().ok().flatten())
 }
 
 pub fn apply_window_effect(window: &tauri::WebviewWindow, effect: &str, theme: &tauri::Theme, round_corners: bool) {

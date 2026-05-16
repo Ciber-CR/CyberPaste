@@ -105,27 +105,34 @@ pub async fn ai_process_clip(
     Ok(result)
 }
 
-fn clip_to_list_item(clip: &Clip, image_path: Option<&str>) -> ClipboardItem {
+fn clip_to_list_item(clip: &Clip, image_path: Option<&str>, preview_only: bool) -> ClipboardItem {
     let content_str = if clip.clip_type == "image" {
         image_path.unwrap_or_default().to_string()
+    } else if preview_only {
+        // Optimization: don't send full content for previews to save IPC/CPU
+        String::new()
     } else {
         String::from_utf8_lossy(&clip.content).to_string()
     };
+
+    let content_length = String::from_utf8_lossy(&clip.content).chars().count();
 
     ClipboardItem {
         id: clip.uuid.clone(),
         clip_type: clip.clip_type.clone(),
         content: content_str,
         preview: clip.text_preview.clone(),
+        content_length,
         folder_id: clip.folder_id.map(|id| id.to_string()),
         created_at: clip.created_at.to_rfc3339(),
         source_app: clip.source_app.clone(),
         source_icon: clip.source_icon.clone(),
         metadata: clip.metadata.clone(),
+        image_path: image_path.map(|s| s.to_string()),
     }
 }
 
-fn clip_to_detail_item(clip: &Clip, full_image_content: Option<&[u8]>) -> ClipboardItem {
+fn clip_to_detail_item(clip: &Clip, full_image_content: Option<&[u8]>, image_path: Option<String>) -> ClipboardItem {
     let content_str = if clip.clip_type == "image" {
         BASE64.encode(full_image_content.unwrap_or(&clip.content))
     } else {
@@ -137,11 +144,13 @@ fn clip_to_detail_item(clip: &Clip, full_image_content: Option<&[u8]>) -> Clipbo
         clip_type: clip.clip_type.clone(),
         content: content_str,
         preview: clip.text_preview.clone(),
+        content_length: String::from_utf8_lossy(&clip.content).chars().count(),
         folder_id: clip.folder_id.map(|id| id.to_string()),
         created_at: clip.created_at.to_rfc3339(),
         source_app: clip.source_app.clone(),
         source_icon: clip.source_icon.clone(),
         metadata: clip.metadata.clone(),
+        image_path,
     }
 }
 
@@ -231,41 +240,42 @@ async fn cleanup_all_clip_image_files(pool: &SqlitePool) -> Result<(), String> {
 }
 
 pub async fn migrate_images_to_files(pool: &SqlitePool) -> Result<(), String> {
-    log::info!("Starting background image migration...");
+    log::info!("Checking for legacy images to migrate...");
 
     // 1. Migrate legacy clips (content in 'clips' table)
-    let legacy_clips: Vec<Clip> =
-        sqlx::query_as(r#"SELECT * FROM clips WHERE clip_type = 'image' AND length(content) > 0"#)
+    let legacy_clips: Vec<(String, Vec<u8>)> =
+        sqlx::query_as(r#"SELECT uuid, content FROM clips WHERE clip_type = 'image' AND length(content) > 0"#)
             .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?;
 
-    for clip in legacy_clips {
-        log::info!("Migrating legacy clip {}...", clip.uuid);
-        let full_bytes = clip.content.clone();
-        match crate::clipboard::persist_full_image_file(&clip.uuid, &full_bytes) {
-            Ok(file_path) => {
-                let _ = sqlx::query(
-                    r#"
-                    INSERT OR REPLACE INTO clip_images (clip_uuid, full_content, file_path, file_size, storage_kind, mime_type, created_at)
-                    VALUES (?, x'', ?, ?, 'file', 'image/png', CURRENT_TIMESTAMP)
-                    "#,
-                )
-                .bind(&clip.uuid)
-                .bind(&file_path)
-                .bind(full_bytes.len() as i64)
-                .execute(pool)
-                .await;
+    if !legacy_clips.is_empty() {
+        log::info!("Migrating {} legacy image clips to files...", legacy_clips.len());
+        for (uuid, full_bytes) in legacy_clips {
+            match crate::clipboard::persist_full_image_file(&uuid, &full_bytes) {
+                Ok(file_path) => {
+                    let _ = sqlx::query(
+                        r#"
+                        INSERT OR REPLACE INTO clip_images (clip_uuid, full_content, file_path, file_size, storage_kind, mime_type, created_at)
+                        VALUES (?, x'', ?, ?, 'file', 'image/png', CURRENT_TIMESTAMP)
+                        "#,
+                    )
+                    .bind(&uuid)
+                    .bind(&file_path)
+                    .bind(full_bytes.len() as i64)
+                    .execute(pool)
+                    .await;
 
-                let _ = sqlx::query(
-                    r#"UPDATE clips SET content = x'', is_thumbnail = 0 WHERE uuid = ?"#,
-                )
-                .bind(&clip.uuid)
-                .execute(pool)
-                .await;
-            }
-            Err(e) => {
-                log::error!("Failed to migrate legacy clip {}: {}", clip.uuid, e);
+                    let _ = sqlx::query(
+                        r#"UPDATE clips SET content = x'', is_thumbnail = 0 WHERE uuid = ?"#,
+                    )
+                    .bind(&uuid)
+                    .execute(pool)
+                    .await;
+                }
+                Err(e) => {
+                    log::error!("Failed to migrate legacy clip {}: {}", uuid, e);
+                }
             }
         }
     }
@@ -278,29 +288,31 @@ pub async fn migrate_images_to_files(pool: &SqlitePool) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
 
-    for (uuid, content) in db_images {
-        log::info!("Migrating DB-stored image for clip {}...", uuid);
-        match crate::clipboard::persist_full_image_file(&uuid, &content) {
-            Ok(file_path) => {
-                let _ = sqlx::query(
-                    r#"
-                    UPDATE clip_images
-                    SET full_content = x'', file_path = ?, storage_kind = 'file'
-                    WHERE clip_uuid = ?
-                    "#,
-                )
-                .bind(&file_path)
-                .bind(&uuid)
-                .execute(pool)
-                .await;
-            }
-            Err(e) => {
-                log::error!("Failed to migrate DB image for clip {}: {}", uuid, e);
+    if !db_images.is_empty() {
+        log::info!("Migrating {} DB-stored images to files...", db_images.len());
+        for (uuid, content) in db_images {
+            match crate::clipboard::persist_full_image_file(&uuid, &content) {
+                Ok(file_path) => {
+                    let _ = sqlx::query(
+                        r#"
+                        UPDATE clip_images
+                        SET full_content = x'', file_path = ?, storage_kind = 'file'
+                        WHERE clip_uuid = ?
+                        "#,
+                    )
+                    .bind(&file_path)
+                    .bind(&uuid)
+                    .execute(pool)
+                    .await;
+                }
+                Err(e) => {
+                    log::error!("Failed to migrate DB image for clip {}: {}", uuid, e);
+                }
             }
         }
     }
 
-    log::info!("Background image migration completed.");
+    log::info!("Background image migration process finished.");
     Ok(())
 }
 
@@ -451,7 +463,7 @@ pub async fn get_clips(
         .iter()
         .enumerate()
         .map(|(idx, clip)| {
-            let item = clip_to_list_item(clip, image_path_map.get(&clip.uuid).map(|s| s.as_str()));
+            let item = clip_to_list_item(clip, image_path_map.get(&clip.uuid).map(|s| s.as_str()), preview_only);
             // Only log first 10 clips to reduce noise
             if idx < 10 {
                 log::trace!(
@@ -486,13 +498,13 @@ pub async fn get_clips(
 
 #[tauri::command]
 pub async fn get_clip(
-    id: String,
+    clip_id: String,
     db: tauri::State<'_, Arc<Database>>,
 ) -> Result<ClipboardItem, String> {
     let pool = &db.pool;
 
     let clip: Option<Clip> = sqlx::query_as(r#"SELECT * FROM clips WHERE uuid = ?"#)
-        .bind(&id)
+        .bind(&clip_id)
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -500,10 +512,30 @@ pub async fn get_clip(
     match clip {
         Some(mut clip) => {
             if clip.clip_type == "image" {
+                let mut file_path: Option<String> =
+                    sqlx::query_scalar(r#"SELECT file_path FROM clip_images WHERE clip_uuid = ?"#)
+                        .bind(&clip.uuid)
+                        .fetch_optional(pool)
+                        .await
+                        .map_err(|e| e.to_string())?;
+
                 let full = load_full_image_content(pool, &mut clip).await?;
-                Ok(clip_to_detail_item(&clip, Some(&full)))
+
+                // JIT Migration: If no file path exists, create one now so the viewer can use it for 'Edit'
+                if file_path.is_none() || file_path.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
+                    if let Ok(path) = crate::clipboard::persist_full_image_file(&clip.uuid, &full) {
+                        let _ = sqlx::query("UPDATE clip_images SET file_path = ?, storage_kind = 'file' WHERE clip_uuid = ?")
+                            .bind(&path)
+                            .bind(&clip.uuid)
+                            .execute(pool)
+                            .await;
+                        file_path = Some(path);
+                    }
+                }
+
+                Ok(clip_to_detail_item(&clip, Some(&full), file_path))
             } else {
-                Ok(clip_to_detail_item(&clip, None))
+                Ok(clip_to_detail_item(&clip, None, None))
             }
         }
         None => Err("Clip not found".to_string()),
@@ -635,12 +667,21 @@ pub async fn paste_clip(
                 }
             }
 
-            // Manually perform the LRU bump (update created_at)
+            // Manually perform the LRU bump (update created_at and sort_order)
             let _ =
-                sqlx::query(r#"UPDATE clips SET created_at = CURRENT_TIMESTAMP WHERE uuid = ?"#)
+                sqlx::query(r#"
+                    UPDATE clips 
+                    SET created_at = CURRENT_TIMESTAMP, 
+                        sort_order = (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM clips) 
+                    WHERE uuid = ?
+                "#)
                     .bind(&uuid)
                     .execute(pool)
                     .await;
+
+            // Notify frontend to refresh list (standard trigger)
+            let _ = app.emit("clipboard-change", ());
+            let _ = window.emit("clipboard-change", ());
 
             // Restart monitor
             let app_clone = app.clone();
@@ -1057,7 +1098,7 @@ pub async fn search_clips(
     let map_started = Instant::now();
     let items: Vec<ClipboardItem> = clips
         .iter()
-        .map(|clip| clip_to_list_item(clip, image_path_map.get(&clip.uuid).map(|s| s.as_str())))
+        .map(|clip| clip_to_list_item(clip, image_path_map.get(&clip.uuid).map(|s| s.as_str()), true))
         .collect();
     let map_ms = map_started.elapsed().as_millis();
     let total_ms = started.elapsed().as_millis();
@@ -1704,13 +1745,17 @@ pub fn get_data_dir_path() -> Result<String, String> {
 
 #[tauri::command]
 pub fn open_with(app_path: String, file_path: String) -> Result<(), String> {
+    log::info!("open_with called: editor='{}', file='{}'", app_path, file_path);
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
         Command::new(app_path)
             .arg(file_path)
             .spawn()
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| {
+                log::error!("Failed to spawn editor: {}", e);
+                e.to_string()
+            })?;
         Ok(())
     }
     #[cfg(not(target_os = "windows"))]
@@ -1736,6 +1781,7 @@ pub fn show_item_in_folder(path: String) -> Result<(), String> {
         Err("Not supported on this OS".to_string())
     }
 }
+
 
 #[tauri::command]
 pub async fn update_clip_content(
@@ -1913,4 +1959,211 @@ fn simulate_ctrl_v_internal(target_hwnd: Option<isize>) {
     unsafe {
         let _ = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
     }
+}
+
+#[tauri::command]
+pub async fn show_toast(
+    app: AppHandle,
+    message: String,
+    toast_type: String, // "success", "error", "info"
+    clip_type: Option<String>, // "text", "image", "html", "rtf", "file", "url"
+    image_preview: Option<String>, // base64 encoded tiny thumbnail for images
+) -> Result<(), String> {
+    use crate::settings_manager::SettingsManager;
+    use std::sync::Arc;
+    let manager = app.state::<Arc<SettingsManager>>();
+    if !manager.get().toast_enabled {
+        return Ok(());
+    }
+
+    let window_label = "toast";
+    
+    // Check if toast window exists, if not create it
+    let toast_window = if let Some(win) = app.get_webview_window(window_label) {
+        win
+    } else {
+        tauri::WebviewWindowBuilder::new(
+            &app,
+            window_label,
+            tauri::WebviewUrl::App("index.html?window=toast".into()),
+        )
+        .title("CyberPaste Toast")
+        .inner_size(240.0, 100.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .shadow(false)
+        .visible(false) // hidden until positioned
+        .build()
+        .map_err(|e| format!("Failed to create toast window: {}", e))?
+    };
+
+    // Emit event to update content
+    #[derive(serde::Serialize, Clone)]
+    struct ToastPayload {
+        message: String,
+        toast_type: String,
+        clip_type: Option<String>,
+        image_preview: Option<String>,
+    }
+
+    toast_window
+        .emit(
+            "update-toast",
+            ToastPayload {
+                message,
+                toast_type,
+                clip_type,
+                image_preview,
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn hide_toast(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("toast") {
+        let _ = win.hide();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_toast_position(
+    app: AppHandle,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("toast") {
+        let manager = app.state::<Arc<SettingsManager>>();
+        let position_setting = manager.get().toast_position;
+        let monitor_setting = manager.get().toast_monitor;
+        
+        let available_monitors = win.available_monitors().unwrap_or_default();
+        let monitor = if monitor_setting == "primary" {
+            win.primary_monitor().ok().flatten().or_else(|| win.current_monitor().ok().flatten())
+        } else if let Ok(idx) = monitor_setting.parse::<usize>() {
+            // "1" -> index 0, "2" -> index 1, etc.
+            let zero_idx = idx.saturating_sub(1);
+            available_monitors.get(zero_idx).cloned().or_else(|| win.primary_monitor().ok().flatten())
+        } else {
+            win.primary_monitor().ok().flatten()
+        };
+
+        if let Some(monitor) = monitor {
+            let scale_factor = monitor.scale_factor();
+            let work_area = monitor.work_area();
+            
+            let w_px = (width * scale_factor) as u32;
+            let h_px = (height * scale_factor) as u32;
+            let _ = win.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: w_px, height: h_px }));
+            
+            let margin = (24.0 * scale_factor) as i32;
+            
+            let (target_x, target_y) = match position_setting.as_str() {
+                "top-right" => (
+                    work_area.position.x + work_area.size.width as i32 - w_px as i32 - margin,
+                    work_area.position.y + margin,
+                ),
+                "top-left" => (
+                    work_area.position.x + margin,
+                    work_area.position.y + margin,
+                ),
+                "bottom-center" => (
+                    work_area.position.x + (work_area.size.width as i32 - w_px as i32) / 2,
+                    work_area.position.y + work_area.size.height as i32 - h_px as i32 - margin,
+                ),
+                "bottom-left" => (
+                    work_area.position.x + margin,
+                    work_area.position.y + work_area.size.height as i32 - h_px as i32 - margin,
+                ),
+                "center-right" => (
+                    work_area.position.x + work_area.size.width as i32 - w_px as i32 - margin,
+                    work_area.position.y + (work_area.size.height as i32 - h_px as i32) / 2,
+                ),
+                "center-left" => (
+                    work_area.position.x + margin,
+                    work_area.position.y + (work_area.size.height as i32 - h_px as i32) / 2,
+                ),
+                // default to bottom-right
+                _ => (
+                    work_area.position.x + work_area.size.width as i32 - w_px as i32 - margin,
+                    work_area.position.y + work_area.size.height as i32 - h_px as i32 - margin,
+                ),
+            };
+            let _ = win.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: target_x, y: target_y }));
+            let _ = win.show();
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_image_viewer(app: AppHandle, clip_id: String) -> Result<(), String> {
+    log::info!("open_image_viewer called for clip_id: {}", clip_id);
+    let window_label = "image_viewer";
+    if let Some(win) = app.get_webview_window(window_label) {
+        log::info!("Reusing existing image-viewer window");
+        win.emit("update-viewer-clip", clip_id).ok();
+        win.unminimize().ok();
+        win.show().ok();
+        win.set_focus().ok();
+        win.set_always_on_top(true).ok();
+        return Ok(());
+    }
+
+    log::info!("Creating new image-viewer window");
+    let manager = app.state::<Arc<crate::settings_manager::SettingsManager>>();
+    let settings = manager.get();
+
+    let mut builder = tauri::WebviewWindowBuilder::new(
+        &app,
+        window_label,
+        tauri::WebviewUrl::App(format!("index.html?clip_id={}", clip_id).into()),
+    )
+    .title("CyberPaste Viewer")
+    .inner_size(settings.viewer_window_width, settings.viewer_window_height)
+    .min_inner_size(300.0, 200.0)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .shadow(true)
+    .visible(false);
+
+    if let (Some(x), Some(y)) = (settings.viewer_window_x, settings.viewer_window_y) {
+        builder = builder.position(x as f64, y as f64);
+    }
+
+    let win = builder.build().map_err(|e| {
+        log::error!("Failed to build image-viewer window: {}", e);
+        e.to_string()
+    })?;
+
+    // Apply theme and effects immediately to avoid white flash
+    let mica_effect = settings.mica_effect.clone();
+    let current_theme = if settings.theme == "dark" {
+        tauri::Theme::Dark
+    } else if settings.theme == "light" {
+        tauri::Theme::Light
+    } else {
+        // Default to dark for the viewer if system theme is uncertain during build
+        tauri::Theme::Dark
+    };
+    let round_corners = settings.round_corners;
+    crate::apply_window_effect(&win, &mica_effect, &current_theme, round_corners);
+
+    // Fail-safe: Show window from Rust side after a small delay to ensure it appears 
+    // even if JS fails to call show() on the first boot.
+    let win_clone = win.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        let _ = win_clone.show();
+        let _ = win_clone.set_focus();
+    });
+
+    Ok(())
 }
