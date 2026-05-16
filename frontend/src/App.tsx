@@ -1097,7 +1097,7 @@ function App() {
                       opts.push({
                         label: t('contextMenu.view'),
                         onClick: () => {
-                          if (settings.show_action_messages) {
+                          if (settings?.show_action_messages) {
                             toast.info('Opening Viewer...');
                           }
                           invoke('open_image_viewer', { clipId: clip.id }).catch(console.error);
