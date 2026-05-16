@@ -148,11 +148,6 @@ export const CompactView: React.FC<CompactViewProps> = ({
     }
   };
 
-  const handleFolderWheel = (e: React.WheelEvent) => {
-    if (folderScrollRef.current) {
-      folderScrollRef.current.scrollLeft += e.deltaY;
-    }
-  };
 
 
 

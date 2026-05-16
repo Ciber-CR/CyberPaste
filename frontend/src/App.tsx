@@ -1124,12 +1124,12 @@ function App() {
                             }
                           } else {
                             // Fetch full content before editing since get_clips uses preview_only
-                            invoke<ClipboardItem>('get_clip', { clipId: clip.id })
+                            invoke<AppClipboardItem>('get_clip', { clipId: clip.id })
                               .then(fullClip => {
                                 setEditClip({
                                   isOpen: true,
-                                  clipId: fullClip.id,
-                                  content: fullClip.content
+                                  clipId: (fullClip as any).id || (fullClip as any).uuid,
+                                  content: (fullClip as any).content
                                 });
                               })
                               .catch(err => {
