@@ -20,7 +20,6 @@ function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
 export function ImageViewerWindow() {
   const { t } = useTranslation();
   const [clip, setClip] = useState<ClipboardItem | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [fitToWindow, setFitToWindow] = useState(true);
   const [loading, setLoading] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -75,14 +74,12 @@ export function ImageViewerWindow() {
     };
 
     invoke<Settings>('get_settings').then(s => {
-      setSettings(s);
       settingsRef.current = s;
       applyTheme(s.theme);
     }).catch(console.error);
 
     // Listen for setting changes to update theme in real-time
     const unlistenSettings = listen<Settings>('settings-changed', (event) => {
-      setSettings(event.payload);
       settingsRef.current = event.payload;
       applyTheme(event.payload.theme);
     });
