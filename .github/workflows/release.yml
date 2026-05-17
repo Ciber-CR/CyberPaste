@@ -38,6 +38,24 @@ jobs:
           node -e "const fs = require('fs'); const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json')); delete config.plugins.updater; delete config.bundle.createUpdaterArtifacts; fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2));"
           if (Test-Path pnpm-lock.yaml) { Remove-Item pnpm-lock.yaml }
 
+      - name: Extract Release Notes
+        id: extract_notes
+        run: |
+          node -e "
+            const fs = require('fs');
+            const content = fs.readFileSync('CHANGELOG.md', 'utf8');
+            const version = process.env.GITHUB_REF_NAME.replace(/\\./g, '\\\\.');
+            const regex = new RegExp('^## ' + version + '\\\\r?\\\\n([\\\\s\\\\S]*?)(?:^## |$)', 'im');
+            const match = content.match(regex);
+            const notes = match ? match[1].trim() : 'Release ' + version;
+            fs.writeFileSync('RELEASE_NOTES.txt', notes);
+          "
+          $notes = Get-Content RELEASE_NOTES.txt -Raw
+          $eof = [Guid]::NewGuid().ToString()
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "notes<<$eof"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value $notes
+          Add-Content -Path $env:GITHUB_OUTPUT -Value $eof
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,6 +66,6 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "CyberPaste v__VERSION__"
-          releaseBody: "See the assets to download this version and install."
-          releaseDraft: true
+          releaseBody: ${{ steps.extract_notes.outputs.notes }}
+          releaseDraft: false
           prerelease: false
