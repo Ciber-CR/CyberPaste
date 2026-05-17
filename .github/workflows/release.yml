@@ -33,6 +33,9 @@ jobs:
       - name: install dependencies
         run: npm ci || npm install
 
+      - name: Disable Updater for Cloud Build
+        run: node -e "const fs = require('fs'); const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json')); delete config.plugins.updater; fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2));"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
