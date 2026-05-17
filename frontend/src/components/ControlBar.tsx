@@ -1,6 +1,6 @@
 // HMR Force Reload
-import React from 'react';
-import { Search, Plus, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Maximize2, Minimize2, X, Folder as FolderIcon, Zap, Flame, Star, Leaf, Droplets, Clock, Cloud, Moon, Music, Shield, Cpu, Database, Globe, Lock, Terminal, Code, Command, Compass, HardDrive, Ghost, Activity, FolderHeart, FolderSync, FolderOpen, FolderLock, Archive, Briefcase, Bookmark, Tag, Inbox, Layers, Layout, Library, Package, Paperclip, Puzzle, Settings, Share2, Smile, Sun, Pin, PinOff, RotateCcw, FileText, Image as ImageIcon, FileCode, Files, Keyboard, HardDrive as StorageIcon } from 'lucide-react';
 import { FolderItem } from '../types';
 import { clsx } from 'clsx';
 
@@ -37,6 +37,9 @@ interface ControlBarProps {
   onTogglePin?: () => void;
   onResetSize?: () => void;
   style?: React.CSSProperties;
+  hotkey?: string;
+  lastClipTime?: string | null;
+  dbSizeBytes?: number;
 }
 
 export const ControlBar: React.FC<ControlBarProps> = ({
@@ -67,6 +70,9 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onResetSize,
   isDragging,
   style,
+  hotkey,
+  lastClipTime,
+  dbSizeBytes,
 }) => {
   const foldersRef = React.useRef<HTMLDivElement>(null);
 
@@ -80,59 +86,176 @@ export const ControlBar: React.FC<ControlBarProps> = ({
     }
   }, [selectedFolder]);
 
+  // ── Shortcut hint cycling ──
+  const HINTS = [
+    { keys: 'Ctrl+F', action: 'Search' },
+    { keys: 'Enter', action: 'Paste' },
+    { keys: 'Del', action: 'Delete' },
+    { keys: 'P', action: 'Pin' },
+    { keys: 'Esc', action: 'Close' },
+  ];
+  const [hintIndex, setHintIndex] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setHintIndex(i => (i + 1) % HINTS.length), 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // ── Last clip age (live-updating) ──
+  const [lastClipAge, setLastClipAge] = useState('');
+  useEffect(() => {
+    if (!lastClipTime) { setLastClipAge(''); return; }
+    const update = () => {
+      const diffMs = Date.now() - new Date(lastClipTime).getTime();
+      if (diffMs < 0) { setLastClipAge('now'); return; }
+      const secs = Math.floor(diffMs / 1000);
+      if (secs < 60) setLastClipAge(`${secs}s`);
+      else if (secs < 3600) setLastClipAge(`${Math.floor(secs / 60)}m`);
+      else if (secs < 86400) setLastClipAge(`${Math.floor(secs / 3600)}h`);
+      else setLastClipAge(`${Math.floor(secs / 86400)}d`);
+    };
+    update();
+    const timer = setInterval(update, 5000);
+    return () => clearInterval(timer);
+  }, [lastClipTime]);
+
+  // ── DB size formatting ──
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   return (
     <div
       className={clsx(
-        'relative flex flex-col border-b border-border/40 bg-card/50 backdrop-blur-md',
-        'bg-gradient-to-br from-indigo-500/5 via-cyan-500/5 to-transparent bg-[length:200%_200%] animate-subtle-gradient',
+        'relative flex flex-col bg-card/50 backdrop-blur-md z-10',
         theme === 'dark' ? 'text-white' : 'text-slate-900'
       )}
       style={{
         ...style,
-        height: '56px',
-        boxShadow: '0 -2px 12px rgba(99, 102, 241, 0.15)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
       }}
     >
-      {/* System Status Strip */}
-      <div className="flex items-center justify-between px-4 py-0.5 border-b border-white/5 bg-gradient-to-r from-indigo-500/10 via-cyan-500/5 to-transparent">
-        <div className="flex items-center gap-1.5">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
-          </span>
-          <span className="text-[9px] font-medium text-cyan-400/80 tracking-widest uppercase">Monitoring</span>
+      {/* ═══ HUD Status Strip — matches compact header style ═══ */}
+      <div
+        className="relative flex items-center justify-between px-3 overflow-hidden select-none bg-white/5 backdrop-blur-md shrink-0 border-b-[4px] border-[#0A0A0B]"
+        style={{ height: '34px' }}
+      >
+        <HudKeyframes />
+        {/* Scan-line sweep (CSS-only, GPU-composited) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div
+            className="absolute inset-y-0 w-[25%]"
+            style={{
+              background: 'linear-gradient(90deg, transparent, rgba(6,182,212,0.05), transparent)',
+              animation: 'hud-scan 4s ease-in-out infinite alternate',
+            }}
+          />
         </div>
 
-        {/* Context Info */}
-        <div className="flex items-center gap-1.5 text-[9px] font-medium tracking-wide">
-          <span className="px-1.5 py-px rounded bg-cyan-500/20 text-cyan-400 font-bold tracking-wider">TOTALS</span>
-          <span className="text-indigo-300/80">Main Clipboard <span className="text-white/40">({totalClipCount})</span></span>
-          <span className="text-white/20">|</span>
-          <span className="text-purple-300/80">Folders <span className="text-white/40">({folders.length})</span></span>
-          <span className="text-white/20">|</span>
-          <span className="text-amber-300/80">Images <span className="text-white/40">({imageCount})</span></span>
-          <span className="text-white/20">|</span>
-          <span className="text-emerald-300/80">Text <span className="text-white/40">({textCount})</span></span>
-          <span className="text-white/20">|</span>
-          <span className="text-yellow-300/80">Files <span className="text-white/40">({fileCount ?? 0})</span></span>
-          <span className="text-white/20">|</span>
-          <span className="text-sky-300/80">HTML <span className="text-white/40">({htmlCount ?? 0})</span></span>
-          <span className="text-white/20">|</span>
-          <span className="text-violet-300/80">RTF <span className="text-white/40">({rtfCount ?? 0})</span></span>
+        {/* Corner brackets — top-left */}
+        <svg className="absolute top-0 left-0 opacity-30 pointer-events-none" width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M0 8V0h8" stroke="rgba(6,182,212,0.6)" strokeWidth="1" />
+        </svg>
+        {/* Corner brackets — top-right */}
+        <svg className="absolute top-0 right-0 opacity-30 pointer-events-none" width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M8 8V0H0" stroke="rgba(6,182,212,0.6)" strokeWidth="1" />
+        </svg>
+        {/* Corner brackets — bottom-left */}
+        <svg className="absolute bottom-0 left-0 opacity-20 pointer-events-none" width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M0 0v8h8" stroke="rgba(99,102,241,0.5)" strokeWidth="1" />
+        </svg>
+        {/* Corner brackets — bottom-right */}
+        <svg className="absolute bottom-0 right-0 opacity-20 pointer-events-none" width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M8 0v8H0" stroke="rgba(99,102,241,0.5)" strokeWidth="1" />
+        </svg>
+
+        {/* ── LEFT: Logo + App Name (no badge — only compact has one) ── */}
+        <div className="flex items-center gap-2 z-10 flex-shrink-0">
+          <div className="w-6 h-6 flex items-center justify-center overflow-hidden">
+            <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
+          </div>
+          <span className="font-bold text-sm tracking-tight">CyberPaste</span>
+        </div>
+
+        {/* ── CENTER: Stat Chips ── */}
+        <div className="flex items-center gap-1.5 z-10">
+          {/* Clipboard stat uses breathing LED instead of Clock icon */}
+          <HudChip icon={
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inset-0 rounded-full bg-cyan-400" style={{ animation: 'hud-breathe 3s ease-in-out infinite' }} />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500" />
+            </span>
+          } value={totalClipCount} color="#22d3ee" label="Clipboard" />
+          <div className="w-px h-3 bg-white/8" />
+          <HudChip icon={<FileText size={11} />} value={textCount} color="#a78bfa" label="Text" />
+          <div className="w-px h-3 bg-white/8" />
+          <HudChip icon={<ImageIcon size={11} />} value={imageCount} color="#fbbf24" label="Images" />
+          <div className="w-px h-3 bg-white/8" />
+          <HudChip icon={<Files size={11} />} value={fileCount ?? 0} color="#4ade80" label="Files" />
+          <div className="w-px h-3 bg-white/8" />
+          <HudChip icon={<FileCode size={11} />} value={(htmlCount ?? 0) + (rtfCount ?? 0)} color="#38bdf8" label="Rich" />
+          <div className="w-px h-3 bg-white/8" />
+          <HudChip icon={<FolderIcon size={11} />} value={folders.length} color="#fb923c" label="Folders" />
           {selectedFolder && (
             <>
-              <span className="text-white/20">|</span>
-              <span className="text-cyan-400/60">
-                {folders.find(f => f.id === selectedFolder)?.item_count || 0} items showing in <span className="text-white/50">{currentFolderName}</span>
+              <div className="mx-1 h-3 w-px bg-cyan-500/20" />
+              <span className="text-[8px] font-medium text-cyan-400/60 tracking-wide flex items-center gap-1">
+                <span className="px-1 py-px rounded bg-cyan-500/10 border border-cyan-500/15 text-cyan-400 font-bold">
+                  {currentFolderName}
+                </span>
+                <span className="text-white/30">{folders.find(f => f.id === selectedFolder)?.item_count || 0}</span>
               </span>
             </>
           )}
         </div>
 
-        <span className="text-[9px] font-mono text-white/20 tracking-wider">v1.0.1</span>
+        {/* ── RIGHT: Status Info ── */}
+        <div className="flex items-center gap-2 z-10 flex-shrink-0">
+          {/* Shortcut hint (cycling, fixed width to prevent layout shift) */}
+          <div className="flex items-center gap-1 text-[8px] text-white/25 w-[100px]" title="Keyboard shortcuts">
+            <Keyboard size={8} className="text-white/20 flex-shrink-0" />
+            <div key={hintIndex} className="flex items-center gap-1" style={{ animation: 'hud-hint-fade 0.5s ease-out' }}>
+              <span className="font-mono font-bold text-cyan-400/70">{HINTS[hintIndex].keys}</span>
+              <span className="text-white/35">{HINTS[hintIndex].action}</span>
+            </div>
+          </div>
+
+          {/* Hotkey badge */}
+          {hotkey && (
+            <>
+              <div className="w-px h-3 bg-white/8" />
+              <span className="text-[8px] font-mono font-bold text-indigo-400/60 px-1 py-px rounded bg-indigo-500/10 border border-indigo-500/15" title="Global hotkey">
+                {hotkey}
+              </span>
+            </>
+          )}
+
+          {/* Last clip age */}
+          {lastClipAge && (
+            <>
+              <div className="w-px h-3 bg-white/8" />
+              <div className="flex items-center gap-0.5 text-[8px] text-white/20" title={`Last clip: ${lastClipAge} ago`}>
+                <Clock size={8} className="text-cyan-400/40" />
+                <span className="font-mono text-cyan-400/50">{lastClipAge}</span>
+              </div>
+            </>
+          )}
+
+          {/* DB size */}
+          {dbSizeBytes != null && dbSizeBytes > 0 && (
+            <>
+              <div className="w-px h-3 bg-white/8" />
+              <div className="flex items-center gap-0.5 text-[8px] text-white/20" title={`Database: ${formatBytes(dbSizeBytes)}`}>
+                <StorageIcon size={8} className="text-amber-400/40" />
+                <span className="font-mono text-amber-400/50">{formatBytes(dbSizeBytes)}</span>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Main Toolbar */}
+      {/* ── Main Toolbar ── */}
       <div className="flex items-center gap-1 px-4 flex-1 min-w-0">
         <button
           onClick={onSearchClick}
@@ -151,7 +274,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         <div 
           ref={foldersRef}
           className={clsx(
-            "no-scrollbar flex flex-1 items-center gap-2 overflow-x-auto transition-all duration-500 ease-in-out",
+            "no-scrollbar flex flex-1 items-center gap-4 overflow-x-auto transition-all duration-500 ease-in-out",
             showSearch ? "opacity-0 scale-95 pointer-events-none invisible" : "opacity-100 scale-100 visible"
           )}
           onWheel={(e) => {
@@ -316,15 +439,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             <Settings size={15} />
           </button>
 
-          {/* View-toggle — primary action pill */}
+          {/* View-toggle — compact pill */}
           <button
             onClick={onToggleMode}
-            className="relative ml-1.5 flex items-center gap-1.5 h-8 px-3 rounded-lg overflow-hidden
+            className="relative ml-1 flex items-center gap-1 h-7 px-2 rounded-lg overflow-hidden
               bg-gradient-to-r from-cyan-500/20 to-indigo-500/20
               border border-cyan-500/40
-              text-cyan-300 text-[10px] font-bold tracking-widest uppercase
-              shadow-[0_0_12px_rgba(6,182,212,0.2)]
-              hover:shadow-[0_0_22px_rgba(6,182,212,0.5)]
+              text-cyan-300
+              shadow-[0_0_8px_rgba(6,182,212,0.15)]
+              hover:shadow-[0_0_16px_rgba(6,182,212,0.4)]
               hover:border-cyan-400/70
               hover:from-cyan-500/30 hover:to-indigo-500/30
               transition-all duration-200 group"
@@ -333,8 +456,8 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             {/* shimmer sweep */}
             <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-500 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             {viewMode === 'full'
-              ? <Minimize2 size={14} className="relative z-10 flex-shrink-0" />
-              : <Maximize2 size={14} className="relative z-10 flex-shrink-0" />
+              ? <Minimize2 size={13} className="relative z-10 flex-shrink-0" />
+              : <Maximize2 size={13} className="relative z-10 flex-shrink-0" />
             }
           </button>
 
@@ -351,3 +474,31 @@ export const ControlBar: React.FC<ControlBarProps> = ({
     </div>
   );
 };
+
+/* ── HUD Stat Chip (icon + label + value) ──────────────────────────── */
+const HudChip: React.FC<{ icon: React.ReactNode; value: number; color: string; label?: string }> = React.memo(({ icon, value, color, label }) => (
+  <div className="flex items-center gap-1.5 px-1" title={label ? `${value} ${label}` : String(value)}>
+    <span style={{ color: `${color}88` }}>{icon}</span>
+    {label && <span className="text-[10px] font-medium tracking-wide uppercase" style={{ color: `${color}99` }}>{label}</span>}
+    <span className="text-[12px] font-bold font-mono tabular-nums" style={{ color }}>{value}</span>
+  </div>
+));
+HudChip.displayName = 'HudChip';
+
+/* ── Inject HUD keyframes (rendered once via React) ────────────────── */
+const HudKeyframes = () => (
+  <style>{`
+    @keyframes hud-scan {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(400%); }
+    }
+    @keyframes hud-breathe {
+      0%, 100% { opacity: .3; transform: scale(1); }
+      50%      { opacity: .8; transform: scale(1.8); }
+    }
+    @keyframes hud-hint-fade {
+      0%   { opacity: 0; transform: translateY(4px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+  `}</style>
+);

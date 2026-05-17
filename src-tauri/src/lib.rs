@@ -393,6 +393,7 @@ pub fn run_app() {
             commands::hide_window,
             commands::get_clipboard_history_size,
             commands::get_clip_stats,
+            commands::get_db_size,
             commands::clear_clipboard_history,
             commands::clear_all_clips,
             commands::remove_duplicate_clips,

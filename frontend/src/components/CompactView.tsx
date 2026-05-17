@@ -181,11 +181,27 @@ export const CompactView: React.FC<CompactViewProps> = ({
       )}
       style={{ border: '1px solid rgba(34, 211, 238, 0.1)' }}
     >
+      <style>{`
+        @keyframes compact-scan {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
       {/* Header */}
       <div
         data-tauri-drag-region
-        className="flex items-center justify-between p-3 border-b border-white/10 bg-white/5 backdrop-blur-md cursor-move flex-shrink-0"
+        className="relative flex items-center justify-between p-3 border-b border-white/10 bg-white/5 backdrop-blur-md cursor-move flex-shrink-0 overflow-hidden"
       >
+        {/* Scan-line sweep (CSS-only, GPU-composited) - 50% opacity of full view */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div
+            className="absolute inset-y-0 w-[25%]"
+            style={{
+              background: 'linear-gradient(90deg, transparent, rgba(6,182,212,0.025), transparent)',
+              animation: 'compact-scan 6.5s ease-in-out infinite alternate',
+            }}
+          />
+        </div>
         <div data-tauri-drag-region className="flex items-center gap-2">
           {isVertical && onToggleSidebar && (
             <button

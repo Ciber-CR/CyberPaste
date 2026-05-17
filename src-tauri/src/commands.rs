@@ -1195,6 +1195,18 @@ pub async fn get_clipboard_history_size(
 }
 
 #[tauri::command]
+pub async fn get_db_size(
+    db: tauri::State<'_, Arc<Database>>,
+) -> Result<i64, String> {
+    let pool = &db.pool;
+    let page_count: i64 = sqlx::query_scalar::<_, i64>("PRAGMA page_count")
+        .fetch_one(pool).await.map_err(|e| e.to_string())?;
+    let page_size: i64 = sqlx::query_scalar::<_, i64>("PRAGMA page_size")
+        .fetch_one(pool).await.map_err(|e| e.to_string())?;
+    Ok(page_count * page_size)
+}
+
+#[tauri::command]
 pub async fn get_clip_stats(
     db: tauri::State<'_, Arc<Database>>,
 ) -> Result<serde_json::Value, String> {

@@ -74,6 +74,15 @@ function App() {
     settingsRef.current = settings;
   }, [settings]);
 
+  // DB size for HUD status strip
+  const [dbSizeBytes, setDbSizeBytes] = useState(0);
+  useEffect(() => {
+    const fetchSize = () => invoke<number>('get_db_size').then(setDbSizeBytes).catch(() => {});
+    fetchSize();
+    const timer = setInterval(fetchSize, 30000); // refresh every 30s
+    return () => clearInterval(timer);
+  }, []);
+
   // Simulated Drag State
   const [draggingClipId, setDraggingClipId] = useState<string | null>(null);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
@@ -1058,6 +1067,9 @@ function App() {
               isPinned={settings?.pinned ?? false}
               onTogglePin={handleTogglePin}
               onResetSize={handleResetSize}
+              hotkey={settings?.hotkey}
+              lastClipTime={clips[0]?.created_at ?? null}
+              dbSizeBytes={dbSizeBytes}
             />
 
             <main data-el="clip-list-area" className="no-scrollbar relative flex-1 overflow-hidden">
