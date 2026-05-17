@@ -2,6 +2,37 @@
 
 All notable changes to CyberPaste will be documented in this file.
 
+## v1.1.1
+
+### Added
+- **Cyber HUD Redesign**: Implemented a pixel-perfect, perfectly symmetric HUD Status Strip with enhanced typography and "Cylon eye" animated scan lines.
+- **Compact View Polish**: Added a subtle, slower version of the HUD scan animation to the compact view header for cohesive design.
+
+### Fixed
+- **Window Stability**: Fixed window repositioning logic and layout toggle commands to guarantee perfect geometry preservation across view modes.
+
+### 新增
+- **赛博 HUD 重设**: 实现了像素级完美对称的 HUD 状态栏，优化了排版并新增了“赛博之眼”动态扫描线动画。
+- **精简视图优化**: 为精简视图顶栏添加了更加柔和、缓慢的扫描动画，保持整体设计风格的一致性。
+
+### 修复
+- **窗口稳定性**: 修复了窗口重新定位逻辑和布局切换命令，确保在不同视图模式下完美保留窗口几何尺寸。
+
+## v1.1.0
+
+### Added
+- **Image Viewer**: Integrated a new Image Viewer for previewing graphical clipboard entries.
+- **Toast Notifications**: Added a new in-app toast notification system for instant feedback on user actions.
+- **AI Refinements**: Improved AI processing logic for clipboard items.
+- **Navigation Improvements**: Enhanced overall navigation within the app interface.
+
+### 新增
+- **图片查看器**: 集成了全新的图片查看器，用于预览图形剪贴板内容。
+- **吐司通知**: 新增了应用内吐司通知系统，为用户操作提供即时反馈。
+- **AI 优化**: 改进了针对剪贴板内容的 AI 处理逻辑。
+- **导航改进**: 增强了应用界面内的整体导航体验。
+
+
 ## v1.0.2
 
 ### Added
